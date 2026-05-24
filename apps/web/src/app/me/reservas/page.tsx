@@ -49,7 +49,8 @@ function maxDateStr() {
 }
 
 function ptDate(iso: string) {
-  return new Date(iso + 'T12:00:00').toLocaleDateString('pt-BR', {
+  const dateStr = iso.includes('T') ? iso.split('T')[0] : iso;
+  return new Date(dateStr + 'T12:00:00').toLocaleDateString('pt-BR', {
     weekday: 'short',
     day: '2-digit',
     month: 'short',
@@ -59,7 +60,8 @@ function ptDate(iso: string) {
 
 function daysUntil(dateStr: string) {
   const today = new Date(); today.setHours(0, 0, 0, 0);
-  const d = new Date(dateStr + 'T00:00:00'); d.setHours(0, 0, 0, 0);
+  const dateOnly = dateStr.includes('T') ? dateStr.split('T')[0] : dateStr;
+  const d = new Date(dateOnly + 'T00:00:00'); d.setHours(0, 0, 0, 0);
   return Math.round((d.getTime() - today.getTime()) / 86400000);
 }
 
@@ -72,7 +74,8 @@ function canCancel(r: Reserva): boolean {
   const ontem = new Date();
   ontem.setDate(ontem.getDate() - 1);
   ontem.setHours(0, 0, 0, 0);
-  const dataRes = new Date(r.data + 'T00:00:00');
+  const dataOnly = typeof r.data === 'string' && r.data.includes('T') ? r.data.split('T')[0] : r.data;
+  const dataRes = new Date(dataOnly + 'T00:00:00');
   return r.canceladaEm === null && dataRes > ontem;
 }
 

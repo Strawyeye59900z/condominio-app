@@ -203,14 +203,19 @@ export default function EncomendasPage() {
 
   async function handleBaixa(id: string) {
     if (!token) return;
-    await moradorApi.baixaEncomenda(token, id);
-    // Re-fetch para garantir que a lista reflita o BD (evita glitches de estado)
-    const [pend, hist] = await Promise.all([
-      moradorApi.getEncomendas(token, 'PENDENTE'),
-      moradorApi.getEncomendas(token, 'RETIRADA'),
-    ]);
-    setPendentes(Array.isArray(pend) ? pend : []);
-    setHistorico(Array.isArray(hist) ? hist : []);
+    try {
+      await moradorApi.baixaEncomenda(token, id);
+      // Re-fetch para garantir que a lista reflita o BD (evita glitches de estado)
+      const [pend, hist] = await Promise.all([
+        moradorApi.getEncomendas(token, 'PENDENTE'),
+        moradorApi.getEncomendas(token, 'RETIRADA'),
+      ]);
+      setPendentes(Array.isArray(pend) ? pend : []);
+      setHistorico(Array.isArray(hist) ? hist : []);
+    } catch (err) {
+      console.error('Erro ao confirmar retirada:', err);
+      throw err;
+    }
   }
 
   if (!ready) return null;

@@ -40,7 +40,8 @@ const TIPO_LABEL: Record<string, string> = {
 };
 
 function ptDate(iso: string) {
-  return new Date(iso + 'T00:00:00').toLocaleDateString('pt-BR', {
+  const dateStr = iso.includes('T') ? iso.split('T')[0] : iso;
+  return new Date(dateStr + 'T00:00:00').toLocaleDateString('pt-BR', {
     weekday: 'short',
     day: '2-digit',
     month: 'short',
@@ -59,7 +60,8 @@ function ptDateTime(iso: string) {
 function daysUntil(dateStr: string) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  const d = new Date(dateStr + 'T00:00:00');
+  const dateOnly = dateStr.includes('T') ? dateStr.split('T')[0] : dateStr;
+  const d = new Date(dateOnly + 'T00:00:00');
   d.setHours(0, 0, 0, 0);
   return Math.round((d.getTime() - today.getTime()) / 86400000);
 }
