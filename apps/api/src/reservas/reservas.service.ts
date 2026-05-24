@@ -173,7 +173,7 @@ export class ReservasService {
 
     return this.prisma.reserva.update({
       where: { id },
-      data: { canceladaEm: agora, canceladaPor },
+      data: { canceladaEm: agora, canceladoPor },
       select: { id: true, canceladaEm: true, espaco: true },
     });
   }
