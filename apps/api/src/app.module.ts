@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { LoggerModule } from 'nestjs-pino';
 import { PrismaModule } from './prisma/prisma.module';
 import { HealthModule } from './health/health.module';
 import { AuthModule } from './auth/auth.module';
@@ -22,6 +24,27 @@ import { AuditInterceptor } from './common/interceptors/audit.interceptor';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+
+    // Logs estruturados JSON com pino
+    LoggerModule.forRoot({
+      pinoHttp: {
+        level: process.env.NODE_ENV === 'production' ? 'info' : 'debug',
+        transport: process.env.NODE_ENV !== 'production'
+          ? { target: 'pino-pretty', options: { singleLine: true } }
+          : undefined,
+        redact: ['req.headers.authorization', 'req.headers.cookie'],
+        serializers: {
+          req: (req) => ({ method: req.method, url: req.url, ip: req.remoteAddress }),
+          res: (res) => ({ statusCode: res.statusCode }),
+        },
+      },
+    }),
+
+    // Rate limiting: 60 req/min global; rotas de auth têm throttler próprio
+    ThrottlerModule.forRoot([
+      { name: 'global', ttl: 60_000, limit: 60 },
+    ]),
+
     PrismaModule,
     DriveModule,
     AuthModule,
@@ -40,6 +63,7 @@ import { AuditInterceptor } from './common/interceptors/audit.interceptor';
   providers: [
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
     { provide: APP_INTERCEPTOR, useClass: AuditInterceptor },
   ],
 })

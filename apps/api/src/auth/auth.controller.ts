@@ -9,6 +9,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { Throttle } from '@nestjs/throttler';
 import type { Request, Response } from 'express';
 import { Public } from './decorators/public.decorator';
 import { AllowMustChangePassword } from './decorators/allow-must-change-password.decorator';
@@ -27,6 +28,8 @@ import type {
   RequestUser,
 } from './types/auth.types';
 
+// 10 tentativas de login por minuto por IP
+@Throttle({ global: { ttl: 60_000, limit: 10 } })
 @Controller('auth')
 export class AuthController {
   constructor(
