@@ -47,20 +47,24 @@ log "Comprimindo backup..."
 gzip -f "$DB_DUMP"
 log "Tamanho: $(du -h "$DB_DUMP_GZ" | cut -f1)"
 
-# Copia arquivo para container e faz upload
-log "Fazendo upload para Google Drive..."
-cd "$INSTALL_DIR"
-TMP_CONT="/tmp/backup-${TS}.dump.gz"
-docker compose cp "$DB_DUMP_GZ" api:"$TMP_CONT"
-docker compose exec -T api node scripts/upload-drive.js "$TMP_CONT" "Backups/${TS}.dump.gz" \
-  || { log "ERRO: upload para Drive falhou"; exit 1; }
-docker compose exec -T api rm -f "$TMP_CONT"
+# Salva backup em diretório local
+log "Salvando backup local..."
+BACKUP_FINAL="$BACKUP_DIR/$NAME"
+cp "$DB_DUMP_GZ" "$BACKUP_FINAL"
+log "Backup salvo em: $BACKUP_FINAL"
 
-log "Backup criado e enviado: ${TS}.dump.gz"
-
-# Limpa backups antigos (mantém últimos 7 dias)
+# Limpa backups antigos locais (mantém últimos 7 dias)
 log "Limpando backups antigos (>7 dias)..."
-docker compose exec -T api node scripts/cleanup-drive.js "Backups/" --keep-days 7 \
-  || log "AVISO: cleanup retornou erro (não crítico)"
+find "$BACKUP_DIR" -name "*.dump.gz" -mtime +7 -delete \
+  && log "Backups antigos removidos" \
+  || log "AVISO: limpeza retornou erro (não crítico)"
+
+# TODO: implementar upload para Google Drive quando OAuth2 estiver estável
+# Por enquanto, recomenda-se:
+# 1. Fazer snapshot do LXC via Proxmox
+# 2. Ou configurar rsync/sftp para um NAS
+# 3. Ou usar Google Drive manualmente
 
 log "=== Backup concluído com sucesso ==="
+log "Arquivo: $BACKUP_FINAL"
+log "Próximo backup: $(date -d 'tomorrow 03:00' '+%Y-%m-%d %H:%M')"
