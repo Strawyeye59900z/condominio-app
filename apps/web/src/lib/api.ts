@@ -69,6 +69,13 @@ export interface LoginResponse {
   };
 }
 
+export interface FuncionarioPublic {
+  id: string;
+  loginId: string;
+  nome: string;
+  fotoUrl: string | null;
+}
+
 export const authApi = {
   loginAdmin: (email: string, senha: string) =>
     api<LoginResponse>('/auth/admin/login', { method: 'POST', body: { email, senha } }),
@@ -78,6 +85,9 @@ export const authApi = {
 
   loginMorador: (numeroAp: string, senha: string) =>
     api<LoginResponse>('/auth/morador/login', { method: 'POST', body: { numeroAp, senha } }),
+
+  listFuncionarios: () =>
+    api<FuncionarioPublic[]>('/auth/funcionarios/list'),
 
   changePassword: (token: string, senhaAtual: string, novaSenha: string) =>
     api('/auth/change-password', {

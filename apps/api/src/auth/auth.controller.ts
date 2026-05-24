@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Get,
   HttpCode,
   HttpStatus,
   Post,
@@ -53,6 +54,13 @@ export class AuthController {
     const session = await this.auth.loginFuncionario(dto.loginId, dto.senha);
     this.setRefreshCookie(res, session.refreshToken);
     return this.publicSession(session);
+  }
+
+  // Lista pública de porteiros para a tela de login (cards com foto + nome)
+  @Public()
+  @Get('funcionarios/list')
+  async listFuncionariosPublic() {
+    return this.auth.listFuncionariosPublic();
   }
 
   @Public()

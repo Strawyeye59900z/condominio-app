@@ -219,4 +219,20 @@ export class AuthService {
       expiresIn: this.config.get<string>('JWT_REFRESH_TTL', '30d'),
     });
   }
+
+  // ===== Lista pública de porteiros (sem dados sensíveis) =====
+  // Usado na tela de login para o porteiro selecionar seu card.
+  async listFuncionariosPublic() {
+    const funcs = await this.prisma.funcionario.findMany({
+      where: { ativo: true },
+      orderBy: { nome: 'asc' },
+      select: {
+        id: true,
+        loginId: true,
+        nome: true,
+        fotoUrl: true,
+      },
+    });
+    return funcs;
+  }
 }
