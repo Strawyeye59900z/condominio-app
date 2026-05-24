@@ -82,8 +82,12 @@ export class DriveService {
         fields: 'id, webContentLink, webViewLink',
       });
       return this.toResult(created.data);
-    } catch (e) {
-      this.logger.error(`upload Drive falhou: ${(e as Error).message}`);
+    } catch (e: unknown) {
+      const err = e as { message?: string; code?: number; errors?: unknown[]; response?: { data?: unknown } };
+      this.logger.error(
+        `upload Drive falhou: ${err?.message ?? String(e)} | code=${err?.code ?? '-'} | ` +
+        `responseData=${JSON.stringify(err?.response?.data ?? err?.errors ?? null)}`,
+      );
       throw new InternalServerErrorException('Falha ao enviar arquivo ao Drive');
     }
   }
@@ -101,6 +105,15 @@ export class DriveService {
       buffer: Buffer.from(res.data as ArrayBuffer),
       mimeType: meta.data.mimeType ?? 'application/octet-stream',
     };
+  }
+
+  /** Verifica conectividade: lista 1 arquivo na pasta raiz. */
+  async ping(): Promise<void> {
+    await this.drive.files.list({
+      q: `'${this.rootFolderId}' in parents and trashed=false`,
+      pageSize: 1,
+      fields: 'files(id)',
+    });
   }
 
   async trash(driveId: string): Promise<void> {
