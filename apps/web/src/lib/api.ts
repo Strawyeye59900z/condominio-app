@@ -54,7 +54,17 @@ export async function api<T = any>(path: string, opts: RequestOptions = {}): Pro
   return data as T;
 }
 
-// ===== Endpoints tipados =====
+// Helper interno: monta query string
+function qs(params: Record<string, string | undefined>): string {
+  const p = new URLSearchParams();
+  for (const [k, v] of Object.entries(params)) {
+    if (v !== undefined) p.set(k, v);
+  }
+  const s = p.toString();
+  return s ? `?${s}` : '';
+}
+
+// ===== Tipos de domínio =====
 
 export interface LoginResponse {
   accessToken: string;
@@ -75,6 +85,58 @@ export interface FuncionarioPublic {
   nome: string;
   fotoUrl: string | null;
 }
+
+export interface Encomenda {
+  id: string;
+  tipo: 'CAIXA' | 'ENVELOPE' | 'SACOLA';
+  status: 'PENDENTE' | 'RETIRADA' | 'CANCELADA';
+  recebidaEm: string;
+  retiradaEm: string | null;
+  editavelAte: string;
+  whatsappStatus: 'PENDENTE' | 'ENVIADA' | 'FALHOU';
+  apartamento: { id: string; numero: string };
+  morador: { id: string; nome: string };
+}
+
+export interface Reserva {
+  id: string;
+  espaco: 'QUADRA' | 'CHURRASQUEIRA' | 'SALAO_FESTAS';
+  data: string;           // ISO date "YYYY-MM-DD"
+  horaInicio: number | null;
+  duracaoHoras: number | null;
+  canceladaEm: string | null;
+  morador: { id: string; nome: string };
+  apartamento: { id: string; numero: string };
+}
+
+export interface MoradorAdmin {
+  id: string;
+  nome: string;
+  telefone: string;
+  fotoUrl: string | null;
+  statusFacial: 'PENDENTE' | 'REGISTRADO';
+  isAdminAp: boolean;
+  ativo: boolean;
+  apartamento: { id: string; numero: string };
+}
+
+export interface FuncionarioAdmin {
+  id: string;
+  loginId: string;
+  nome: string;
+  fotoUrl: string | null;
+  ativo: boolean;
+  mustChangePassword: boolean;
+  createdAt: string;
+}
+
+export interface ApartamentoLookup {
+  id: string;
+  numero: string;
+  moradores: { id: string; nome: string; telefone: string }[];
+}
+
+// ===== Auth API =====
 
 export const authApi = {
   loginAdmin: (email: string, senha: string) =>
@@ -101,4 +163,91 @@ export const authApi = {
 
   refresh: () =>
     api<{ accessToken: string }>('/auth/refresh', { method: 'POST' }),
+};
+
+// ===== Admin API =====
+
+export const adminApi = {
+  getMoradores: (token: string, params?: { statusFacial?: string; apartamentoId?: string }) =>
+    api<MoradorAdmin[]>(`/admin/moradores${qs(params ?? {})}`, { token }),
+
+  patchMorador: (token: string, id: string, body: { ativo?: boolean; resetFoto?: boolean }) =>
+    api<MoradorAdmin>(`/admin/moradores/${id}`, { method: 'PATCH', token, body }),
+
+  getFuncionarios: (token: string) =>
+    api<FuncionarioAdmin[]>('/admin/funcionarios', { token }),
+
+  createFuncionario: (token: string, body: { loginId: string; nome: string; senhaProvisoria: string }) =>
+    api<FuncionarioAdmin>('/admin/funcionarios', { method: 'POST', token, body }),
+
+  patchFuncionario: (token: string, id: string, body: { ativo?: boolean; resetSenha?: string }) =>
+    api<FuncionarioAdmin>(`/admin/funcionarios/${id}`, { method: 'PATCH', token, body }),
+
+  getEncomendas: (token: string, status?: string) =>
+    api<Encomenda[]>(`/admin/encomendas${qs({ status })}`, { token }),
+
+  patchEncomenda: (token: string, id: string, body: { moradorId?: string; tipo?: string }) =>
+    api<Encomenda>(`/admin/encomendas/${id}`, { method: 'PATCH', token, body }),
+
+  getReservas: (token: string, params?: { inicio?: string; fim?: string }) =>
+    api<Reserva[]>(`/admin/reservas/calendario${qs(params ?? {})}`, { token }),
+
+  cancelarReserva: (token: string, id: string) =>
+    api<void>(`/admin/reservas/${id}`, { method: 'DELETE', token }),
+
+  getFacialNext: (token: string) =>
+    api<MoradorAdmin | null>('/admin/facial-queue/next', { token, raw: false }),
+
+  postFacialRegistrado: (token: string, moradorId: string) =>
+    api<void>(`/admin/facial-queue/${moradorId}/registrado`, { method: 'POST', token }),
+};
+
+// ===== Porteiro API =====
+
+export const porteiroApi = {
+  getEncomendas: (token: string, status?: string) =>
+    api<Encomenda[]>(`/porteiro/encomendas${qs({ status })}`, { token }),
+
+  createEncomenda: (token: string, body: { apartamentoId: string; moradorId: string; tipo: string }) =>
+    api<Encomenda>('/porteiro/encomendas', { method: 'POST', token, body }),
+
+  patchEncomenda: (token: string, id: string, body: { moradorId?: string; tipo?: string }) =>
+    api<Encomenda>(`/porteiro/encomendas/${id}`, { method: 'PATCH', token, body }),
+
+  getApartamentos: (token: string) =>
+    api<ApartamentoLookup[]>('/porteiro/apartamentos', { token }),
+};
+
+// ===== Morador API =====
+
+export const moradorApi = {
+  getEncomendas: (token: string, status?: string) =>
+    api<Encomenda[]>(`/me/encomendas${qs({ status })}`, { token }),
+
+  baixaEncomenda: (token: string, id: string) =>
+    api<void>(`/me/encomendas/${id}/baixa`, { method: 'POST', token }),
+
+  getReservas: (token: string) =>
+    api<Reserva[]>('/me/reservas', { token }),
+
+  createReserva: (
+    token: string,
+    body: { espaco: string; data: string; horaInicio?: number; duracaoHoras?: number },
+  ) => api<Reserva>('/me/reservas', { method: 'POST', token, body }),
+
+  cancelarReserva: (token: string, id: string) =>
+    api<void>(`/me/reservas/${id}`, { method: 'DELETE', token }),
+
+  getDisponibilidade: (token: string, espaco: string, data: string) =>
+    api<{ horaInicio: number; disponivel: boolean }[]>(
+      `/me/reservas/disponibilidade${qs({ espaco, data })}`,
+      { token },
+    ),
+
+  uploadFoto: (token: string, file: File, consentLgpd: boolean) => {
+    const form = new FormData();
+    form.append('foto', file);
+    form.append('consent', String(consentLgpd));
+    return api<{ fotoUrl: string }>('/me/foto', { method: 'POST', token, body: form });
+  },
 };
