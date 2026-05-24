@@ -47,17 +47,17 @@ log "Comprimindo backup..."
 gzip -f "$DB_DUMP"
 log "Tamanho: $(du -h "$DB_DUMP_GZ" | cut -f1)"
 
-# Faz upload para Drive
+# Faz upload para Drive via container
 log "Fazendo upload para Google Drive..."
 cd "$INSTALL_DIR"
-node scripts/upload-drive.js "$DB_DUMP_GZ" "Backups/${TS}.dump.gz" \
+docker compose exec -T api node scripts/upload-drive.js "$DB_DUMP_GZ" "Backups/${TS}.dump.gz" \
   || { log "ERRO: upload para Drive falhou"; exit 1; }
 
 log "Backup criado e enviado: ${TS}.dump.gz"
 
 # Limpa backups antigos (mantém últimos 7 dias)
 log "Limpando backups antigos (>7 dias)..."
-node scripts/cleanup-drive.js "Backups/" --keep-days 7 \
+docker compose exec -T api node scripts/cleanup-drive.js "Backups/" --keep-days 7 \
   || log "AVISO: cleanup retornou erro (não crítico)"
 
 log "=== Backup concluído com sucesso ==="
