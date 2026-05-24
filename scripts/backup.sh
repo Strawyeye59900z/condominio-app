@@ -51,7 +51,7 @@ log "Tamanho: $(du -h "$DB_DUMP_GZ" | cut -f1)"
 log "Fazendo upload para Google Drive..."
 cd "$INSTALL_DIR"
 TMP_CONT="/tmp/backup-${TS}.dump.gz"
-docker compose cp "$DB_DUMP_GZ" condominio-api:"$TMP_CONT"
+docker compose cp "$DB_DUMP_GZ" api:"$TMP_CONT"
 docker compose exec -T api node scripts/upload-drive.js "$TMP_CONT" "Backups/${TS}.dump.gz" \
   || { log "ERRO: upload para Drive falhou"; exit 1; }
 docker compose exec -T api rm -f "$TMP_CONT"
