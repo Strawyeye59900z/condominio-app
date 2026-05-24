@@ -6,12 +6,14 @@ import {
   Param,
   Post,
   Query,
+  Response,
 } from '@nestjs/common';
 import { Espaco } from '@prisma/client';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import type { RequestUser } from '../auth/types/auth.types';
 import { ReservasService } from './reservas.service';
+import { PdfService } from './pdf.service';
 import { CreateReservaDto } from './dto/reservas.dto';
 
 // ===== Morador =====
@@ -51,7 +53,10 @@ export class ReservasMeController {
 @Roles('admin')
 @Controller('admin/reservas')
 export class ReservasAdminController {
-  constructor(private readonly svc: ReservasService) {}
+  constructor(
+    private readonly svc: ReservasService,
+    private readonly pdfSvc: PdfService,
+  ) {}
 
   @Get('calendario')
   calendario(
@@ -59,6 +64,24 @@ export class ReservasAdminController {
     @Query('fim') fim?: string,
   ) {
     return this.svc.listAdmin(inicio, fim);
+  }
+
+  @Get('relatorio.pdf')
+  async relatorio(
+    @Query('inicio') inicio?: string,
+    @Query('fim') fim?: string,
+    @Response() res: any,
+  ) {
+    const reservas = await this.svc.listAdminSync(inicio, fim);
+    const pdf = this.pdfSvc.generateReservasReport(reservas);
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="relatorio-reservas-${new Date().toISOString().split('T')[0]}.pdf"`,
+    );
+
+    pdf.pipe(res);
   }
 
   @Delete(':id')

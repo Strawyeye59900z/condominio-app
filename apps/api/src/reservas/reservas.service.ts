@@ -251,6 +251,27 @@ export class ReservasService {
       },
     });
   }
+
+  // ===== Para relatório PDF =====
+  listAdminSync(inicio?: string, fim?: string) {
+    const where: Prisma.ReservaWhereInput = { canceladaEm: null };
+    if (inicio) where.data = { gte: parseDate(inicio) };
+    if (fim) {
+      const dataFim = parseDate(fim);
+      where.data = {
+        ...(where.data as object | undefined),
+        lte: dataFim,
+      };
+    }
+    return this.prisma.reserva.findMany({
+      where,
+      orderBy: [{ data: 'asc' }, { espaco: 'asc' }],
+      include: {
+        morador: { select: { nome: true, telefone: true } },
+        apartamento: { select: { numero: true } },
+      },
+    });
+  }
 }
 
 // ===== Helpers =====
