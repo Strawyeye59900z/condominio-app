@@ -24,18 +24,21 @@ export class DriveService {
     this.rootFolderId = this.config.getOrThrow<string>('GDRIVE_ROOT_FOLDER_ID');
 
     // Suporte a OAuth2 (conta pessoal) OU Service Account (Google Workspace)
+    // Prioridade: OAuth2 > Service Account
     const clientId = this.config.get<string>('GDRIVE_OAUTH_CLIENT_ID');
     const clientSecret = this.config.get<string>('GDRIVE_OAUTH_CLIENT_SECRET');
     const refreshToken = this.config.get<string>('GDRIVE_OAUTH_REFRESH_TOKEN');
 
     if (clientId && clientSecret && refreshToken) {
       // OAuth2 — usa a cota do Drive do usuário real (conta pessoal Gmail)
+      this.logger.log('DriveService: detectadas variáveis GDRIVE_OAUTH_*, usando OAuth2');
       const oauth2 = new google.auth.OAuth2(clientId, clientSecret);
       oauth2.setCredentials({ refresh_token: refreshToken });
       this.drive = google.drive({ version: 'v3', auth: oauth2 });
-      this.logger.log('DriveService: usando autenticação OAuth2 (conta pessoal)');
+      this.logger.log('DriveService: autenticação OAuth2 configurada com sucesso');
     } else {
       // Service Account — requer Google Workspace (Shared Drive)
+      this.logger.log('DriveService: variáveis OAuth2 não encontradas, tentando Service Account');
       const saFile = this.config.getOrThrow<string>('GDRIVE_SA_FILE');
       const auth = new google.auth.GoogleAuth({
         keyFile: saFile,

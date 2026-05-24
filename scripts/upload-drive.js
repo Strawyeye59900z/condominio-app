@@ -42,6 +42,12 @@ async function uploadToDrive() {
   }
 
   try {
+    // Debug: mostra quais variáveis estão definidas
+    console.log('[upload-drive] variáveis de ambiente:');
+    console.log(`  GDRIVE_OAUTH_CLIENT_ID: ${process.env.GDRIVE_OAUTH_CLIENT_ID ? 'OK' : 'FALTA'}`);
+    console.log(`  GDRIVE_OAUTH_CLIENT_SECRET: ${process.env.GDRIVE_OAUTH_CLIENT_SECRET ? 'OK' : 'FALTA'}`);
+    console.log(`  GDRIVE_OAUTH_REFRESH_TOKEN: ${process.env.GDRIVE_OAUTH_REFRESH_TOKEN ? 'OK' : 'FALTA'}`);
+
     // Carrega credenciais OAuth2 do .env
     const clientId = process.env.GDRIVE_OAUTH_CLIENT_ID;
     const clientSecret = process.env.GDRIVE_OAUTH_CLIENT_SECRET;
