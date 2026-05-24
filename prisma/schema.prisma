@@ -1,0 +1,174 @@
+// Schema Prisma — Condomínio App
+// Convenções: snake_case no DB, camelCase no código (via @@map / @map).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================
+// IDENTIDADE & ACESSO
+// ============================================================
+
+model Admin {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@map("admins")
+}
+
+model Funcionario {
+  id                 String   @id @default(cuid())
+  loginId            String   @unique @map("login_id")
+  nome               String
+  passwordHash       String   @map("password_hash")
+  fotoUrl            String?  @map("foto_url")
+  mustChangePassword Boolean  @default(true) @map("must_change_password")
+  ativo              Boolean  @default(true)
+  createdAt          DateTime @default(now()) @map("created_at")
+
+  encomendasRecebidas Encomenda[] @relation("FuncionarioRecebe")
+
+  @@map("funcionarios")
+}
+
+model Apartamento {
+  id            String   @id @default(cuid())
+  numero        String   @unique
+  passwordHash  String   @map("password_hash")
+  isProvisional Boolean  @default(true) @map("is_provisional")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  moradores  Morador[]
+  reservas   Reserva[]
+  encomendas Encomenda[]
+
+  @@map("apartamentos")
+}
+
+model Morador {
+  id             String       @id @default(cuid())
+  apartamentoId  String       @map("apartamento_id")
+  apartamento    Apartamento  @relation(fields: [apartamentoId], references: [id], onDelete: Cascade)
+  nome           String
+  telefone       String                                      // E.164: +5511999999999
+  fotoUrl        String?      @map("foto_url")
+  fotoDriveId    String?      @map("foto_drive_id")          // id do arquivo no Drive (p/ overwrite)
+  statusFacial   StatusFacial @default(PENDENTE) @map("status_facial")
+  consentLgpdAt  DateTime?    @map("consent_lgpd_at")
+  consentLgpdIp  String?      @map("consent_lgpd_ip")
+  isAdminAp      Boolean      @default(false) @map("is_admin_ap")
+  ativo          Boolean      @default(true)
+  createdAt      DateTime     @default(now()) @map("created_at")
+
+  encomendas        Encomenda[] @relation("MoradorDestinatario")
+  encomendasBaixaPor Encomenda[] @relation("MoradorBaixa")
+  reservas          Reserva[]
+
+  @@index([statusFacial, createdAt])
+  @@index([apartamentoId])
+  @@map("moradores")
+}
+
+enum StatusFacial {
+  PENDENTE
+  REGISTRADO
+}
+
+// ============================================================
+// ENCOMENDAS
+// ============================================================
+
+model Encomenda {
+  id              String          @id @default(cuid())
+  apartamentoId   String          @map("apartamento_id")
+  apartamento     Apartamento     @relation(fields: [apartamentoId], references: [id])
+  moradorId       String          @map("morador_id")
+  morador         Morador         @relation("MoradorDestinatario", fields: [moradorId], references: [id])
+  tipo            TipoEncomenda
+  recebidaEm      DateTime        @default(now()) @map("recebida_em")
+  recebidaPor     String          @map("recebida_por")               // Funcionario.id
+  funcionario     Funcionario     @relation("FuncionarioRecebe", fields: [recebidaPor], references: [id])
+  retiradaEm      DateTime?       @map("retirada_em")
+  retiradaPor     String?         @map("retirada_por")               // Morador.id
+  retiradoPorMorador Morador?     @relation("MoradorBaixa", fields: [retiradaPor], references: [id])
+  status          StatusEncomenda @default(PENDENTE)
+  whatsappStatus  WhatsappStatus  @default(PENDENTE) @map("whatsapp_status")
+  whatsappError   String?         @map("whatsapp_error")
+  editavelAte     DateTime        @map("editavel_ate")
+
+  @@index([apartamentoId, status])
+  @@index([status, recebidaEm])
+  @@map("encomendas")
+}
+
+enum TipoEncomenda {
+  CAIXA
+  ENVELOPE
+  SACOLA
+}
+
+enum StatusEncomenda {
+  PENDENTE
+  RETIRADA
+  CANCELADA
+}
+
+enum WhatsappStatus {
+  PENDENTE
+  ENVIADA
+  FALHOU
+}
+
+// ============================================================
+// RESERVAS
+// ============================================================
+
+model Reserva {
+  id            String      @id @default(cuid())
+  apartamentoId String      @map("apartamento_id")
+  apartamento   Apartamento @relation(fields: [apartamentoId], references: [id])
+  moradorId     String      @map("morador_id")
+  morador       Morador     @relation(fields: [moradorId], references: [id])
+  espaco        Espaco
+  data          DateTime    @db.Date                              // dia da reserva
+  horaInicio    Int?        @map("hora_inicio")                   // 0..23 (apenas QUADRA)
+  duracaoHoras  Int?        @map("duracao_horas")                 // 1..4 (apenas QUADRA)
+  criadaEm      DateTime    @default(now()) @map("criada_em")
+  canceladaEm   DateTime?   @map("cancelada_em")
+  canceladaPor  String?     @map("cancelada_por")                 // Morador.id ou Admin.id
+
+  @@index([espaco, data])
+  @@index([apartamentoId, data])
+  @@map("reservas")
+}
+
+enum Espaco {
+  QUADRA
+  CHURRASQUEIRA
+  SALAO_FESTAS
+}
+
+// ============================================================
+// AUDIT LOG
+// ============================================================
+
+model AuditLog {
+  id        BigInt   @id @default(autoincrement())
+  actorType String   @map("actor_type")
+  actorId   String?  @map("actor_id")
+  action    String
+  targetId  String?  @map("target_id")
+  metadata  Json?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([action, createdAt])
+  @@index([actorType, actorId, createdAt])
+  @@map("audit_logs")
+}

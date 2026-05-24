@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.next/
+*.log
+.env
+.env.local
+secrets/*
+!secrets/.gitkeep
+coverage/
+.DS_Store
+*.tsbuildinfo
