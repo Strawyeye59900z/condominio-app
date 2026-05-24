@@ -138,6 +138,6 @@ export class PdfService {
 
     doc.end();
 
-    return doc;
+    return doc as unknown as Readable;
   }
 }

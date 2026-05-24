@@ -68,9 +68,9 @@ export class ReservasAdminController {
 
   @Get('relatorio.pdf')
   async relatorio(
+    @Response() res: any,
     @Query('inicio') inicio?: string,
     @Query('fim') fim?: string,
-    @Response() res: any,
   ) {
     const reservas = await this.svc.listAdminSync(inicio, fim);
     const pdf = this.pdfSvc.generateReservasReport(reservas);
