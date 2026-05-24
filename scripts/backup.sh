@@ -12,6 +12,7 @@ LOG_FILE="/var/log/condominio-backup.log"
 TS=$(date +"%Y%m%d-%H%M%S")
 DB_DUMP="/tmp/db-${TS}.dump"
 DB_DUMP_GZ="${DB_DUMP}.gz"
+NAME="condominio-${TS}.dump.gz"
 
 # Carrega .env
 if [ -f "$INSTALL_DIR/.env" ]; then
