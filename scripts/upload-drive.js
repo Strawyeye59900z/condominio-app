@@ -1,113 +1,112 @@
 #!/usr/bin/env node
-// ============================================================
-// upload-drive.js
-// Uso: node scripts/upload-drive.js <arquivoLocal> <caminhoDriveRelativo>
-// Ex.: node scripts/upload-drive.js /tmp/db.dump.gz "Backups/db-20260523.dump.gz"
-//
-// Lê a Service Account em GDRIVE_SA_FILE (default ./secrets/gdrive.json).
-// Usa a pasta-raiz em GDRIVE_ROOT_FOLDER_ID (deve estar compartilhada com a SA).
-// Cria subpastas conforme o caminho relativo (idempotente).
-// Se já existir um arquivo com o mesmo nome no destino, sobrescreve (update).
-// ============================================================
-'use strict';
+
+/**
+ * upload-drive.js
+ * Faz upload de um arquivo para Google Drive usando OAuth2
+ * Uso: node upload-drive.js <filePath> <remotePath>
+ */
 
 const fs = require('fs');
 const path = require('path');
-
-function loadEnv() {
-  const envPath = path.resolve(process.cwd(), '.env');
-  if (!fs.existsSync(envPath)) return;
-  for (const line of fs.readFileSync(envPath, 'utf8').split('\n')) {
-    const m = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*)\s*$/i);
-    if (m && !process.env[m[1]]) process.env[m[1]] = m[2].replace(/^"(.*)"$/, '$1');
-  }
-}
-loadEnv();
-
 const { google } = require('googleapis');
 
-async function main() {
-  const [localFile, drivePath] = process.argv.slice(2);
-  if (!localFile || !drivePath) {
-    console.error('Uso: node upload-drive.js <arquivoLocal> <caminhoDriveRelativo>');
-    process.exit(2);
-  }
-  if (!fs.existsSync(localFile)) {
-    console.error(`Arquivo local não encontrado: ${localFile}`);
-    process.exit(2);
-  }
+const CREDENTIALS_PATH = path.join(
+  process.env.INSTALL_DIR || '/opt/condominio',
+  'secrets',
+  'gdrive.json'
+);
 
-  const saFile = process.env.GDRIVE_SA_FILE || './secrets/gdrive.json';
-  const rootId = process.env.GDRIVE_ROOT_FOLDER_ID;
-  if (!fs.existsSync(saFile)) {
-    console.error(`Service Account não encontrada: ${saFile}`);
-    process.exit(2);
-  }
-  if (!rootId) {
-    console.error('GDRIVE_ROOT_FOLDER_ID não definido');
-    process.exit(2);
+async function uploadToDrive() {
+  const args = process.argv.slice(2);
+  if (args.length < 2) {
+    console.error('Uso: node upload-drive.js <filePath> <remotePath>');
+    process.exit(1);
   }
 
-  const auth = new google.auth.GoogleAuth({
-    keyFile: saFile,
-    scopes: ['https://www.googleapis.com/auth/drive'],
-  });
-  const drive = google.drive({ version: 'v3', auth });
+  const filePath = args[0];
+  const remotePath = args[1]; // ex: "Backups/20260524-150000.dump.gz"
 
-  // Resolve cada segmento de pasta (cria se faltar)
-  const segments = drivePath.replace(/^\/+|\/+$/g, '').split('/');
-  const fileName = segments.pop();
-  let parentId = rootId;
+  if (!fs.existsSync(filePath)) {
+    console.error(`Erro: arquivo não encontrado: ${filePath}`);
+    process.exit(1);
+  }
 
-  for (const folder of segments) {
-    const found = await drive.files.list({
-      q: `'${parentId}' in parents and name='${folder.replace(/'/g, "\\'")}' and mimeType='application/vnd.google-apps.folder' and trashed=false`,
-      fields: 'files(id,name)',
-      pageSize: 1,
+  if (!fs.existsSync(CREDENTIALS_PATH)) {
+    console.error(`Erro: arquivo de credenciais não encontrado: ${CREDENTIALS_PATH}`);
+    process.exit(1);
+  }
+
+  try {
+    const credentials = JSON.parse(fs.readFileSync(CREDENTIALS_PATH, 'utf-8'));
+
+    const auth = new google.auth.OAuth2(
+      credentials.client_id,
+      credentials.client_secret,
+      credentials.redirect_uri || 'http://localhost:3000/auth/google/callback'
+    );
+
+    auth.setCredentials({
+      refresh_token: credentials.refresh_token,
     });
-    if (found.data.files && found.data.files.length > 0) {
-      parentId = found.data.files[0].id;
-    } else {
-      const created = await drive.files.create({
-        requestBody: {
-          name: folder,
-          mimeType: 'application/vnd.google-apps.folder',
-          parents: [parentId],
-        },
-        fields: 'id',
+
+    const drive = google.drive({ version: 'v3', auth });
+
+    // Parse remotePath: "Backups/file.gz" -> folder="Backups", name="file.gz"
+    const parts = remotePath.split('/');
+    const fileName = parts[parts.length - 1];
+    const folderPath = parts.slice(0, -1);
+
+    let parentId = 'root';
+
+    // Cria/encontra pastas aninhadas
+    for (const folderName of folderPath) {
+      const res = await drive.files.list({
+        q: `name='${folderName}' and mimeType='application/vnd.google-apps.folder' and '${parentId}' in parents and trashed=false`,
+        spaces: 'drive',
+        fields: 'files(id, name)',
+        pageSize: 1,
       });
-      parentId = created.data.id;
+
+      if (res.data.files.length > 0) {
+        parentId = res.data.files[0].id;
+      } else {
+        // Cria pasta
+        const folderRes = await drive.files.create({
+          requestBody: {
+            name: folderName,
+            mimeType: 'application/vnd.google-apps.folder',
+            parents: [parentId],
+          },
+          fields: 'id',
+        });
+        parentId = folderRes.data.id;
+      }
     }
-  }
 
-  // Verifica se já existe um arquivo com esse nome no destino → update; senão create
-  const existing = await drive.files.list({
-    q: `'${parentId}' in parents and name='${fileName.replace(/'/g, "\\'")}' and trashed=false`,
-    fields: 'files(id,name)',
-    pageSize: 1,
-  });
+    // Upload do arquivo
+    const fileMetadata = {
+      name: fileName,
+      parents: [parentId],
+    };
 
-  const media = { body: fs.createReadStream(localFile) };
+    const media = {
+      mimeType: 'application/octet-stream',
+      body: fs.createReadStream(filePath),
+    };
 
-  if (existing.data.files && existing.data.files.length > 0) {
-    const fileId = existing.data.files[0].id;
-    const res = await drive.files.update({
-      fileId,
-      media,
-      fields: 'id,name,size,webViewLink',
+    const file = await drive.files.create({
+      requestBody: fileMetadata,
+      media: media,
+      fields: 'id, name, webViewLink',
     });
-    console.log(JSON.stringify({ action: 'update', id: res.data.id, name: res.data.name, size: res.data.size, link: res.data.webViewLink }));
-  } else {
-    const res = await drive.files.create({
-      requestBody: { name: fileName, parents: [parentId] },
-      media,
-      fields: 'id,name,size,webViewLink',
-    });
-    console.log(JSON.stringify({ action: 'create', id: res.data.id, name: res.data.name, size: res.data.size, link: res.data.webViewLink }));
+
+    console.log(`Upload concluído: ${remotePath}`);
+    console.log(`ID no Drive: ${file.data.id}`);
+    console.log(`Link: ${file.data.webViewLink}`);
+  } catch (error) {
+    console.error('Erro ao fazer upload:', error.message);
+    process.exit(1);
   }
 }
 
-main().catch((err) => {
-  console.error('[upload-drive] erro:', err.message || err);
-  process.exit(1);
-});
+uploadToDrive();

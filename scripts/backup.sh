@@ -1,42 +1,63 @@
-#!/usr/bin/env bash
-# ============================================================
-# Condomínio App — Backup do PostgreSQL para Google Drive
-# Uso: bash scripts/backup.sh [--tag NOME]
-# ============================================================
+#!/bin/bash
+
+# ===== Backup Automático do PostgreSQL =====
+# Executa pg_dump, comprime, e faz upload para Google Drive
+# Chamado diariamente via cron em /etc/cron.d/condominio-backup
+
 set -euo pipefail
 
 INSTALL_DIR="${INSTALL_DIR:-/opt/condominio}"
-cd "$INSTALL_DIR"
-set -a; . ./.env; set +a
+BACKUP_DIR="/tmp/condominio-backups"
+LOG_FILE="/var/log/condominio-backup.log"
+TS=$(date +"%Y%m%d-%H%M%S")
+DB_DUMP="/tmp/db-${TS}.dump"
+DB_DUMP_GZ="${DB_DUMP}.gz"
 
-TAG=""
-if [ "${1:-}" = "--tag" ] && [ -n "${2:-}" ]; then
-  TAG="$2"
+# Carrega .env
+if [ -f "$INSTALL_DIR/.env" ]; then
+  export $(cat "$INSTALL_DIR/.env" | grep -v '^#' | xargs)
 fi
 
-TS=$(date +%Y%m%d-%H%M%S)
-NAME="${TAG:-daily}-${TS}.dump.gz"
-TMP_HOST="/tmp/condominio-${NAME}"
-TMP_CONT="/tmp/${NAME}"
+log() {
+  echo "[$(date +'%Y-%m-%d %H:%M:%S')] $*" | tee -a "$LOG_FILE"
+}
 
-echo "[backup] dump $POSTGRES_DB → $TMP_HOST"
-docker compose exec -T postgres pg_dump -U "$POSTGRES_USER" -Fc "$POSTGRES_DB" | gzip > "$TMP_HOST"
+cleanup() {
+  rm -f "$DB_DUMP" "$DB_DUMP_GZ" 2>/dev/null || true
+}
 
-# Copia para o container api (que tem googleapis + script upload)
-docker compose cp "$TMP_HOST" api:"$TMP_CONT"
-echo "[backup] upload Drive (Backups/$NAME)..."
-docker compose exec -T \
-  -e GDRIVE_SA_FILE \
-  -e GDRIVE_ROOT_FOLDER_ID \
-  api node /app/scripts/upload-drive.js "$TMP_CONT" "Backups/$NAME"
+trap cleanup EXIT
 
-docker compose exec -T api rm -f "$TMP_CONT"
-rm -f "$TMP_HOST"
+log "=== Iniciando backup ==="
 
-echo "[backup] cleanup (mantendo últimos 7)..."
-docker compose exec -T \
-  -e GDRIVE_SA_FILE \
-  -e GDRIVE_ROOT_FOLDER_ID \
-  api node /app/scripts/cleanup-drive.js "Backups/" --keep-last 7 || true
+# Cria diretório temporário
+mkdir -p "$BACKUP_DIR"
 
-echo "[backup] concluído em $(date '+%Y-%m-%d %H:%M:%S')"
+# Executa pg_dump do container
+log "Executando pg_dump..."
+cd "$INSTALL_DIR"
+docker compose exec -T postgres pg_dump \
+  -U condominio \
+  -Fc \
+  condominio > "$DB_DUMP" \
+  || { log "ERRO: pg_dump falhou"; exit 1; }
+
+# Comprime
+log "Comprimindo backup..."
+gzip -f "$DB_DUMP"
+log "Tamanho: $(du -h "$DB_DUMP_GZ" | cut -f1)"
+
+# Faz upload para Drive
+log "Fazendo upload para Google Drive..."
+cd "$INSTALL_DIR"
+node scripts/upload-drive.js "$DB_DUMP_GZ" "Backups/${TS}.dump.gz" \
+  || { log "ERRO: upload para Drive falhou"; exit 1; }
+
+log "Backup criado e enviado: ${TS}.dump.gz"
+
+# Limpa backups antigos (mantém últimos 7 dias)
+log "Limpando backups antigos (>7 dias)..."
+node scripts/cleanup-drive.js "Backups/" --keep-days 7 \
+  || log "AVISO: cleanup retornou erro (não crítico)"
+
+log "=== Backup concluído com sucesso ==="
