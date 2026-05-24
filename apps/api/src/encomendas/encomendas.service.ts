@@ -1,20 +1,32 @@
 import {
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { StatusEncomenda, TipoEncomenda } from '@prisma/client';
+import { StatusEncomenda, WhatsappStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { WhatsAppService } from '../whatsapp/whatsapp.service';
 import { REGRAS } from '../common/regras';
 import { CreateEncomendaDto, UpdateEncomendaDto } from './dto/encomendas.dto';
 
+const TIPO_LABEL: Record<string, string> = {
+  CAIXA: 'Caixa',
+  ENVELOPE: 'Envelope',
+  SACOLA: 'Sacola',
+};
+
 @Injectable()
 export class EncomendasService {
-  constructor(private readonly prisma: PrismaService) {}
+  private readonly logger = new Logger(EncomendasService.name);
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly whatsapp: WhatsAppService,
+  ) {}
 
   // ===== Porteiro: registrar encomenda =====
   async create(dto: CreateEncomendaDto, funcionarioId: string) {
-    // Valida que o morador pertence ao AP
     const morador = await this.prisma.morador.findUnique({
       where: { id: dto.moradorId },
       select: { id: true, apartamentoId: true, ativo: true, telefone: true, nome: true },
@@ -36,10 +48,40 @@ export class EncomendasService {
         tipo: dto.tipo,
         recebidaPor: funcionarioId,
         editavelAte,
+        whatsappStatus: WhatsappStatus.PENDENTE,
       },
       include: {
         morador: { select: { nome: true, telefone: true } },
         apartamento: { select: { numero: true } },
+      },
+    });
+
+    // Dispara WhatsApp em background (fire-and-forget)
+    const hora = agora.toLocaleTimeString('pt-BR', {
+      hour: '2-digit',
+      minute: '2-digit',
+      timeZone: 'America/Sao_Paulo',
+    });
+    const tipoLabel = TIPO_LABEL[dto.tipo] ?? dto.tipo;
+    const texto =
+      `Olá, ${morador.nome}! 📦\n` +
+      `Uma encomenda do tipo *${tipoLabel}* foi recebida na portaria às ${hora}.\n` +
+      `Dirija-se à portaria para retirar. ✅`;
+
+    const numero = morador.telefone.replace(/\D/g, ''); // remove o +
+
+    this.whatsapp.sendAsync(numero, texto, {
+      onSuccess: async () => {
+        await this.prisma.encomenda.update({
+          where: { id: encomenda.id },
+          data: { whatsappStatus: WhatsappStatus.ENVIADA },
+        });
+      },
+      onFailure: async (error) => {
+        await this.prisma.encomenda.update({
+          where: { id: encomenda.id },
+          data: { whatsappStatus: WhatsappStatus.FALHOU, whatsappError: error },
+        });
       },
     });
 
@@ -66,7 +108,6 @@ export class EncomendasService {
       );
     }
 
-    // Se trocou moradorId, valida que pertence ao mesmo AP
     if (dto.moradorId && dto.moradorId !== encomenda.moradorId) {
       const novoMorador = await this.prisma.morador.findUnique({
         where: { id: dto.moradorId },

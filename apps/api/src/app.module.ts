@@ -13,6 +13,7 @@ import { DriveModule } from './drive/drive.module';
 import { FotosModule } from './fotos/fotos.module';
 import { FacialModule } from './facial/facial.module';
 import { EncomendasModule } from './encomendas/encomendas.module';
+import { WhatsAppModule } from './whatsapp/whatsapp.module';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { RolesGuard } from './auth/guards/roles.guard';
 
@@ -30,6 +31,7 @@ import { RolesGuard } from './auth/guards/roles.guard';
     MoradoresModule,
     FotosModule,
     FacialModule,
+    WhatsAppModule,
     EncomendasModule,
   ],
   providers: [
