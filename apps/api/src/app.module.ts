@@ -12,6 +12,7 @@ import { MoradoresModule } from './moradores/moradores.module';
 import { DriveModule } from './drive/drive.module';
 import { FotosModule } from './fotos/fotos.module';
 import { FacialModule } from './facial/facial.module';
+import { EncomendasModule } from './encomendas/encomendas.module';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { RolesGuard } from './auth/guards/roles.guard';
 
@@ -29,6 +30,7 @@ import { RolesGuard } from './auth/guards/roles.guard';
     MoradoresModule,
     FotosModule,
     FacialModule,
+    EncomendasModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: JwtAuthGuard },
