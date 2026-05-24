@@ -47,11 +47,14 @@ log "Comprimindo backup..."
 gzip -f "$DB_DUMP"
 log "Tamanho: $(du -h "$DB_DUMP_GZ" | cut -f1)"
 
-# Faz upload para Drive via container
+# Copia arquivo para container e faz upload
 log "Fazendo upload para Google Drive..."
 cd "$INSTALL_DIR"
-docker compose exec -T api node scripts/upload-drive.js "$DB_DUMP_GZ" "Backups/${TS}.dump.gz" \
+TMP_CONT="/tmp/backup-${TS}.dump.gz"
+docker compose cp "$DB_DUMP_GZ" condominio-api:"$TMP_CONT"
+docker compose exec -T api node scripts/upload-drive.js "$TMP_CONT" "Backups/${TS}.dump.gz" \
   || { log "ERRO: upload para Drive falhou"; exit 1; }
+docker compose exec -T api rm -f "$TMP_CONT"
 
 log "Backup criado e enviado: ${TS}.dump.gz"
 
