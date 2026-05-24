@@ -159,7 +159,7 @@ function EncomendaCard({
             <button
               onClick={() => setConfirming(false)}
               className="btn-secondary py-1.5 px-3 text-xs"
-              disabled={pending}
+              disabled={loading}
             >
               Não
             </button>
