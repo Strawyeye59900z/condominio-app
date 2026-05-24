@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useTransition } from 'react';
+import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Package,
@@ -56,23 +56,24 @@ function EncomendaCard({
   onBaixa,
 }: {
   enc: Encomenda;
-  onBaixa: (id: string) => void;
+  onBaixa: (id: string) => Promise<void>;
 }) {
   const [confirming, setConfirming] = useState(false);
-  const [pending, start] = useTransition();
+  const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const isNew = wasToday(enc.recebidaEm);
 
-  function handleBaixa() {
+  async function handleBaixa() {
     setErr(null);
-    start(async () => {
-      try {
-        await onBaixa(enc.id);
-      } catch (e) {
-        setErr(e instanceof ApiError ? e.message : 'Erro ao confirmar retirada.');
-        setConfirming(false);
-      }
-    });
+    setLoading(true);
+    try {
+      await onBaixa(enc.id);
+      // sucesso: o card será desmontado pelo pai — não precisa resetar loading
+    } catch (e) {
+      setErr(e instanceof ApiError ? e.message : 'Erro ao confirmar retirada.');
+      setConfirming(false);
+      setLoading(false);
+    }
   }
 
   return (
@@ -164,10 +165,10 @@ function EncomendaCard({
             </button>
             <button
               onClick={handleBaixa}
-              disabled={pending}
+              disabled={loading}
               className="btn-primary py-1.5 px-3 text-xs"
             >
-              {pending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Sim, retirei'}
+              {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Sim, retirei'}
             </button>
           </motion.div>
         )}
@@ -203,9 +204,13 @@ export default function EncomendasPage() {
   async function handleBaixa(id: string) {
     if (!token) return;
     await moradorApi.baixaEncomenda(token, id);
-    const enc = pendentes.find(e => e.id === id)!;
-    setPendentes(prev => prev.filter(e => e.id !== id));
-    setHistorico(prev => [{ ...enc, status: 'RETIRADA', retiradaEm: new Date().toISOString() }, ...prev]);
+    // Re-fetch para garantir que a lista reflita o BD (evita glitches de estado)
+    const [pend, hist] = await Promise.all([
+      moradorApi.getEncomendas(token, 'PENDENTE'),
+      moradorApi.getEncomendas(token, 'RETIRADA'),
+    ]);
+    setPendentes(Array.isArray(pend) ? pend : []);
+    setHistorico(Array.isArray(hist) ? hist : []);
   }
 
   if (!ready) return null;

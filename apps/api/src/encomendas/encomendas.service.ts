@@ -206,12 +206,16 @@ export class EncomendasService {
       throw new ForbiddenException('Encomenda já foi retirada ou cancelada');
     }
 
+    // moradorId pode ser o ap.id quando não há moradorAdmin cadastrado;
+    // nesse caso não gravamos retiradaPor para evitar FK inválida.
+    const retiradaPor = moradorId !== apartamentoId ? moradorId : null;
+
     return this.prisma.encomenda.update({
       where: { id },
       data: {
         status: StatusEncomenda.RETIRADA,
         retiradaEm: new Date(),
-        retiradaPor: moradorId,
+        retiradaPor,
       },
       select: {
         id: true,

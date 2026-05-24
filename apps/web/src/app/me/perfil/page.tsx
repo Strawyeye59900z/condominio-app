@@ -16,7 +16,7 @@ import {
   ShieldCheck,
   Eye,
   EyeOff,
-  Upload,
+  RotateCcw,
 } from 'lucide-react';
 import { useAuth } from '@/lib/useAuth';
 import { moradorApi, authApi, type MoradorDoAp, ApiError } from '@/lib/api';
@@ -27,6 +27,166 @@ import { cn } from '@/lib/cn';
 
 function initials(nome: string) {
   return nome.split(' ').filter(Boolean).slice(0, 2).map(p => p[0]).join('').toUpperCase();
+}
+
+// ── Camera Modal ──────────────────────────────────────────────────────────────
+
+function CameraModal({
+  onCapture,
+  onClose,
+}: {
+  onCapture: (file: File) => void;
+  onClose: () => void;
+}) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const [preview, setPreview] = useState<string | null>(null);
+  const [ready, setReady] = useState(false);
+  const [camErr, setCamErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    navigator.mediaDevices
+      ?.getUserMedia({ video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 640 } }, audio: false })
+      .then((stream) => {
+        if (cancelled) { stream.getTracks().forEach(t => t.stop()); return; }
+        streamRef.current = stream;
+        if (videoRef.current) videoRef.current.srcObject = stream;
+        setReady(true);
+      })
+      .catch(() => setCamErr('Não foi possível acessar a câmera. Verifique as permissões do navegador.'));
+    return () => {
+      cancelled = true;
+      streamRef.current?.getTracks().forEach(t => t.stop());
+    };
+  }, []);
+
+  function capture() {
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    if (!video || !canvas) return;
+    const size = Math.min(video.videoWidth, video.videoHeight);
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d')!;
+    ctx.drawImage(video, (video.videoWidth - size) / 2, (video.videoHeight - size) / 2, size, size, 0, 0, size, size);
+    setPreview(canvas.toDataURL('image/jpeg', 0.85));
+    streamRef.current?.getTracks().forEach(t => t.stop());
+  }
+
+  function retake() {
+    setPreview(null);
+    setReady(false);
+    setCamErr(null);
+    navigator.mediaDevices
+      ?.getUserMedia({ video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 640 } }, audio: false })
+      .then((stream) => {
+        streamRef.current = stream;
+        if (videoRef.current) videoRef.current.srcObject = stream;
+        setReady(true);
+      })
+      .catch(() => setCamErr('Câmera indisponível. Tente novamente.'));
+  }
+
+  function confirm() {
+    canvasRef.current?.toBlob((blob) => {
+      if (!blob) return;
+      onCapture(new File([blob], 'foto.jpg', { type: 'image/jpeg' }));
+    }, 'image/jpeg', 0.85);
+  }
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-[60] flex flex-col items-center justify-center bg-black p-4"
+    >
+      <button
+        onClick={onClose}
+        className="absolute top-4 right-4 p-2 rounded-full bg-white/20 text-white hover:bg-white/30 transition-colors"
+      >
+        <X className="w-5 h-5" />
+      </button>
+
+      <div className="w-full max-w-sm space-y-4">
+        {/* Erro de câmera */}
+        {camErr && (
+          <div className="text-center space-y-3 py-16">
+            <Camera className="w-12 h-12 text-white/30 mx-auto" />
+            <p className="text-white/70 text-sm">{camErr}</p>
+            <button onClick={onClose} className="text-white text-sm underline">Fechar</button>
+          </div>
+        )}
+
+        {/* Carregando câmera */}
+        {!camErr && !ready && !preview && (
+          <div className="flex flex-col items-center gap-3 py-16">
+            <Loader2 className="w-8 h-8 text-white animate-spin" />
+            <p className="text-white/50 text-sm">Iniciando câmera...</p>
+          </div>
+        )}
+
+        {/* Preview ao vivo */}
+        {!preview && (
+          <div className={cn(!ready && 'hidden')}>
+            <div className="relative aspect-square rounded-2xl overflow-hidden bg-black">
+              <video
+                ref={videoRef}
+                autoPlay
+                playsInline
+                muted
+                className="w-full h-full object-cover scale-x-[-1]"
+              />
+              {/* Guia oval */}
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <div className="w-52 h-64 rounded-full border-2 border-white/60 shadow-[0_0_0_9999px_rgba(0,0,0,0.45)]" />
+              </div>
+            </div>
+            <p className="text-center text-white/50 text-xs mt-3 mb-4">
+              Posicione o rosto no oval e tire a foto
+            </p>
+            <button
+              onClick={capture}
+              className="mx-auto flex items-center gap-2 bg-white text-ink px-8 py-3 rounded-full font-semibold text-sm hover:bg-white/90 transition-colors"
+            >
+              <Camera className="w-4 h-4" />
+              Tirar foto
+            </button>
+          </div>
+        )}
+
+        {/* Prévia capturada */}
+        {preview && (
+          <>
+            <div className="aspect-square rounded-2xl overflow-hidden">
+              <img src={preview} alt="Prévia" className="w-full h-full object-cover" />
+            </div>
+            <p className="text-center text-white/50 text-xs">A foto ficou boa?</p>
+            <div className="flex gap-3 justify-center">
+              <button
+                onClick={retake}
+                className="flex items-center gap-2 border border-white/30 text-white px-5 py-2.5 rounded-full text-sm font-semibold hover:border-white/60 transition-colors"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                Tirar outra
+              </button>
+              <button
+                onClick={confirm}
+                className="flex items-center gap-2 bg-brand text-white px-5 py-2.5 rounded-full text-sm font-semibold hover:bg-brand-light transition-colors"
+              >
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                Usar esta
+              </button>
+            </div>
+          </>
+        )}
+
+        <canvas ref={canvasRef} className="hidden" />
+      </div>
+    </motion.div>
+  );
 }
 
 // ── LGPD Consent Modal ────────────────────────────────────────────────────────
@@ -104,7 +264,7 @@ function LgpdModal({
             onClick={onAccept}
             className="btn-primary flex-1 py-2 text-xs"
           >
-            Aceitar e continuar
+            Aceitar e tirar foto
           </button>
         </div>
       </motion.div>
@@ -194,7 +354,7 @@ function MoradorForm({ initial, onSave, onClose }: MoradorFormProps) {
             </p>
           )}
           <button type="submit" disabled={pending} className="btn-primary w-full">
-            {pending ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Salvar'}
+            {pending ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Salvar e tirar foto'}
           </button>
         </form>
       </motion.div>
@@ -257,7 +417,6 @@ function ChangePasswordSection({ token }: { token: string }) {
             onSubmit={handleSubmit}
             className="overflow-hidden space-y-3"
           >
-            {/* Senha atual */}
             <div className="relative">
               <input
                 type={showAtual ? 'text' : 'password'}
@@ -276,7 +435,6 @@ function ChangePasswordSection({ token }: { token: string }) {
                 {showAtual ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
             </div>
-            {/* Nova senha */}
             <div className="relative">
               <input
                 type={showNova ? 'text' : 'password'}
@@ -332,11 +490,11 @@ export default function PerfilPage() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [deleting, startDelete] = useTransition();
 
-  // Foto
+  // Foto / câmera
   const [lgpdFor, setLgpdFor] = useState<MoradorDoAp | null>(null);
+  const [showCamera, setShowCamera] = useState(false);
   const [uploadingFor, setUploadingFor] = useState<string | null>(null);
   const [uploadErr, setUploadErr] = useState<string | null>(null);
-  const fileRef = useRef<HTMLInputElement>(null);
   const [pendingMoradorId, setPendingMoradorId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -358,7 +516,7 @@ export default function PerfilPage() {
       const m = await moradorApi.createMorador(token, data);
       setMoradores(prev => [...prev, m]);
       setEditingMorador(null);
-      // Inicia o fluxo de foto imediatamente após criar morador
+      // Inicia o fluxo de câmera imediatamente após criar morador
       startUploadFlow(m);
       return;
     } else if (editingMorador) {
@@ -377,12 +535,10 @@ export default function PerfilPage() {
     });
   }
 
-  // ── Foto upload flow ──────────────────────────────────────
+  // ── Foto / câmera flow ────────────────────────────────────
 
   function startUploadFlow(m: MoradorDoAp) {
     if (!m.id) return;
-    // Se já tem consentimento (consentLgpdAt não está no type público, mas
-    // tentamos enviar direto e tratamos o erro se precisar de consent)
     setPendingMoradorId(m.id);
     setLgpdFor(m);
   }
@@ -395,26 +551,26 @@ export default function PerfilPage() {
       // ignora se já tinha consent
     }
     setLgpdFor(null);
-    // Abre o file picker
-    fileRef.current?.click();
+    setShowCamera(true);
   }
 
-  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file || !token || !pendingMoradorId) return;
-    e.target.value = '';
+  async function handleCameraCapture(file: File) {
+    if (!token || !pendingMoradorId) return;
+    setShowCamera(false);
 
     if (file.size > 1024 * 1024) {
-      setUploadErr('Foto maior que 1 MB. Escolha uma imagem menor.');
+      setUploadErr('Foto maior que 1 MB. Tente novamente com melhor iluminação.');
+      setPendingMoradorId(null);
       return;
     }
 
-    setUploadingFor(pendingMoradorId);
+    const id = pendingMoradorId;
+    setUploadingFor(id);
     setUploadErr(null);
     try {
-      const res = await moradorApi.uploadFoto(token, pendingMoradorId, file);
+      const res = await moradorApi.uploadFoto(token, id, file);
       setMoradores(prev =>
-        prev.map(m => m.id === pendingMoradorId ? { ...m, fotoUrl: res.fotoUrl } : m),
+        prev.map(m => m.id === id ? { ...m, fotoUrl: res.fotoUrl } : m),
       );
     } catch (err) {
       setUploadErr(err instanceof ApiError ? err.message : 'Erro no upload.');
@@ -428,16 +584,6 @@ export default function PerfilPage() {
 
   return (
     <AppShell user={user!} title="Meu Perfil">
-      {/* Hidden file input */}
-      <input
-        ref={fileRef}
-        type="file"
-        accept="image/jpeg,image/png,image/webp"
-        className="hidden"
-        onChange={handleFileChange}
-        capture="user"
-      />
-
       <div className="p-4 sm:p-6 max-w-2xl mx-auto space-y-5">
 
         {/* Header AP */}
@@ -492,7 +638,6 @@ export default function PerfilPage() {
             <div className="divide-y divide-bone-dark/40">
               {moradores.map(m => (
                 <div key={m.id} className="flex items-center gap-3 py-3">
-                  {/* Avatar */}
                   <div className="w-9 h-9 rounded-full bg-brand text-white flex items-center justify-center font-display font-bold text-xs shrink-0">
                     {initials(m.nome)}
                   </div>
@@ -539,7 +684,7 @@ export default function PerfilPage() {
             <h3 className="font-semibold text-sm text-ink">Fotos Faciais</h3>
           </div>
           <p className="text-xs text-ink/50">
-            A foto é usada para cadastro na leitora do prédio. Tamanho máximo: 1 MB.
+            A foto é tirada pela câmera do dispositivo e usada para o reconhecimento facial do prédio.
           </p>
 
           {uploadErr && (
@@ -563,7 +708,6 @@ export default function PerfilPage() {
                   key={m.id}
                   className="flex items-center gap-3 p-3 rounded-xl border border-bone-dark/50"
                 >
-                  {/* Foto / avatar */}
                   <div className="w-12 h-12 rounded-xl overflow-hidden shrink-0 bg-bone flex items-center justify-center">
                     {m.fotoUrl ? (
                       <img
@@ -597,7 +741,6 @@ export default function PerfilPage() {
                     </span>
                   </div>
 
-                  {/* Upload button */}
                   {m.statusFacial !== 'REGISTRADO' && (
                     <button
                       onClick={() => startUploadFlow(m)}
@@ -606,10 +749,8 @@ export default function PerfilPage() {
                     >
                       {uploadingFor === m.id ? (
                         <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      ) : m.fotoUrl ? (
-                        <><Upload className="w-3.5 h-3.5" />Substituir</>
                       ) : (
-                        <><Camera className="w-3.5 h-3.5" />Enviar foto</>
+                        <><Camera className="w-3.5 h-3.5" />{m.fotoUrl ? 'Refazer' : 'Tirar foto'}</>
                       )}
                     </button>
                   )}
@@ -679,6 +820,14 @@ export default function PerfilPage() {
             moradorNome={lgpdFor.nome}
             onAccept={handleLgpdAccept}
             onClose={() => { setLgpdFor(null); setPendingMoradorId(null); }}
+          />
+        )}
+
+        {showCamera && (
+          <CameraModal
+            key="camera"
+            onCapture={handleCameraCapture}
+            onClose={() => { setShowCamera(false); setPendingMoradorId(null); }}
           />
         )}
       </AnimatePresence>
