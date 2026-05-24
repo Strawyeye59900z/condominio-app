@@ -218,15 +218,57 @@ export const porteiroApi = {
     api<ApartamentoLookup[]>('/porteiro/apartamentos', { token }),
 };
 
+// ===== Tipos extras para /me =====
+
+export interface MoradorDoAp {
+  id: string;
+  nome: string;
+  telefone: string;
+  fotoUrl: string | null;
+  statusFacial: 'PENDENTE' | 'REGISTRADO';
+  isAdminAp: boolean;
+}
+
+export interface MeResponse {
+  role: 'morador';
+  mustChangePassword: boolean;
+  apartamento: { id: string; numero: string };
+  moradores: MoradorDoAp[];
+}
+
+export interface SlotDisponibilidade {
+  horaInicio: number;
+  disponivel: boolean;
+}
+
 // ===== Morador API =====
 
 export const moradorApi = {
+  // Perfil completo (AP + moradores)
+  getMe: (token: string) =>
+    api<MeResponse>('/me', { token }),
+
+  // Moradores do AP
+  getMoradores: (token: string) =>
+    api<MoradorDoAp[]>('/me/moradores', { token }),
+
+  createMorador: (token: string, body: { nome: string; telefone: string }) =>
+    api<MoradorDoAp>('/me/moradores', { method: 'POST', token, body }),
+
+  updateMorador: (token: string, id: string, body: { nome?: string; telefone?: string }) =>
+    api<MoradorDoAp>(`/me/moradores/${id}`, { method: 'PATCH', token, body }),
+
+  deleteMorador: (token: string, id: string) =>
+    api<void>(`/me/moradores/${id}`, { method: 'DELETE', token }),
+
+  // Encomendas
   getEncomendas: (token: string, status?: string) =>
     api<Encomenda[]>(`/me/encomendas${qs({ status })}`, { token }),
 
   baixaEncomenda: (token: string, id: string) =>
     api<void>(`/me/encomendas/${id}/baixa`, { method: 'POST', token }),
 
+  // Reservas
   getReservas: (token: string) =>
     api<Reserva[]>('/me/reservas', { token }),
 
@@ -239,15 +281,18 @@ export const moradorApi = {
     api<void>(`/me/reservas/${id}`, { method: 'DELETE', token }),
 
   getDisponibilidade: (token: string, espaco: string, data: string) =>
-    api<{ horaInicio: number; disponivel: boolean }[]>(
+    api<SlotDisponibilidade[]>(
       `/me/reservas/disponibilidade${qs({ espaco, data })}`,
       { token },
     ),
 
-  uploadFoto: (token: string, file: File, consentLgpd: boolean) => {
+  // Foto & LGPD — endpoint: POST /me/foto/:moradorId
+  consentLgpd: (token: string, moradorId: string) =>
+    api<void>('/me/consent-lgpd', { method: 'POST', token, body: { moradorId, aceito: true } }),
+
+  uploadFoto: (token: string, moradorId: string, file: File) => {
     const form = new FormData();
     form.append('foto', file);
-    form.append('consent', String(consentLgpd));
-    return api<{ fotoUrl: string }>('/me/foto', { method: 'POST', token, body: form });
+    return api<{ fotoUrl: string }>(`/me/foto/${moradorId}`, { method: 'POST', token, body: form });
   },
 };
