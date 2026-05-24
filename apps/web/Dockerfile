@@ -20,6 +20,11 @@ WORKDIR /repo
 COPY --from=deps /repo /repo
 COPY . .
 
+# API_INTERNAL_URL é congelada no build do Next standalone (next.config.mjs é
+# avaliado em build, não em runtime). Default casa com docker-compose.yml.
+ARG API_INTERNAL_URL=http://api:3001
+ENV API_INTERNAL_URL=${API_INTERNAL_URL}
+
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN npm --workspace apps/web run build
 

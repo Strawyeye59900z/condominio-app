@@ -103,6 +103,8 @@ services:
     build:
       context: .
       dockerfile: apps/web/Dockerfile
+      args:
+        API_INTERNAL_URL: http://api:${API_PORT}
     container_name: condominio-web
     restart: unless-stopped
     depends_on:
