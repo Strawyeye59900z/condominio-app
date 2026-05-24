@@ -10,6 +10,22 @@ const fs = require('fs');
 const path = require('path');
 const { google } = require('googleapis');
 
+// Carrega .env manualmente
+function loadEnv() {
+  const envPath = path.join(process.env.INSTALL_DIR || '/opt/condominio', '.env');
+  if (fs.existsSync(envPath)) {
+    const content = fs.readFileSync(envPath, 'utf-8');
+    content.split('\n').forEach((line) => {
+      const [key, ...rest] = line.split('=');
+      if (key && !key.startsWith('#')) {
+        process.env[key.trim()] = rest.join('=').trim();
+      }
+    });
+  }
+}
+
+loadEnv();
+
 async function cleanupDrive() {
   const args = process.argv.slice(2);
   const folderPath = args[0] || 'Backups/';

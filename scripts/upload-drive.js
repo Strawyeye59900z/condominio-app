@@ -10,6 +10,22 @@ const fs = require('fs');
 const path = require('path');
 const { google } = require('googleapis');
 
+// Carrega .env manualmente
+function loadEnv() {
+  const envPath = path.join(process.env.INSTALL_DIR || '/opt/condominio', '.env');
+  if (fs.existsSync(envPath)) {
+    const content = fs.readFileSync(envPath, 'utf-8');
+    content.split('\n').forEach((line) => {
+      const [key, ...rest] = line.split('=');
+      if (key && !key.startsWith('#')) {
+        process.env[key.trim()] = rest.join('=').trim();
+      }
+    });
+  }
+}
+
+loadEnv();
+
 async function uploadToDrive() {
   const args = process.argv.slice(2);
   if (args.length < 2) {
@@ -33,6 +49,9 @@ async function uploadToDrive() {
 
     if (!clientId || !clientSecret || !refreshToken) {
       console.error('Erro: variáveis GDRIVE_OAUTH_* não configuradas no .env');
+      console.error(`  clientId: ${clientId ? 'OK' : 'FALTA'}`);
+      console.error(`  clientSecret: ${clientSecret ? 'OK' : 'FALTA'}`);
+      console.error(`  refreshToken: ${refreshToken ? 'OK' : 'FALTA'}`);
       process.exit(1);
     }
 
