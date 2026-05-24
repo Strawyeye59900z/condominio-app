@@ -142,7 +142,7 @@ export class ReservasService {
   }
 
   // ===== Cancelar reserva =====
-  async cancelar(id: string, canceladoPor: string, isAdmin: boolean) {
+  async cancelar(id: string, canceladaPor: string, isAdmin: boolean) {
     const reserva = await this.prisma.reserva.findUnique({ where: { id } });
     if (!reserva) throw new NotFoundException('Reserva não encontrada');
     if (reserva.canceladaEm) throw new ConflictException('Reserva já cancelada');
@@ -173,7 +173,7 @@ export class ReservasService {
 
     return this.prisma.reserva.update({
       where: { id },
-      data: { canceladaEm: agora, canceladoPor },
+      data: { canceladaEm: agora, canceladaPor },
       select: { id: true, canceladaEm: true, espaco: true },
     });
   }

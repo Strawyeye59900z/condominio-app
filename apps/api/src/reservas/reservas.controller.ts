@@ -26,7 +26,7 @@ export class ReservasMeController {
   }
 
   @Delete(':id')
-  cancelar(@Param('id') id: string, @CurrentUser() user: RequestUser) {
+  deletarReserva(@Param('id') id: string, @CurrentUser() user: RequestUser) {
     return this.svc.cancelar(id, user.id, false);
   }
 
