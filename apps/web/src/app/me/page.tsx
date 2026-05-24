@@ -15,7 +15,7 @@ import {
   Star,
 } from 'lucide-react';
 import { session, type SessionUser } from '@/lib/auth';
-import { moradorApi, type Encomenda, type Reserva } from '@/lib/api';
+import { moradorApi, type Encomenda, type Reserva, type MoradorDoAp } from '@/lib/api';
 import { AppShell } from '@/components/shell/AppShell';
 import { cn } from '@/lib/cn';
 
@@ -106,6 +106,7 @@ export default function MoradorDashboard() {
 
   const [encomendas, setEncomendas] = useState<Encomenda[] | null>(null);
   const [reservas, setReservas] = useState<Reserva[] | null>(null);
+  const [moradores, setMoradores] = useState<MoradorDoAp[] | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -121,13 +122,14 @@ export default function MoradorDashboard() {
     Promise.allSettled([
       moradorApi.getEncomendas(token, 'PENDENTE'),
       moradorApi.getReservas(token),
-    ]).then(([enc, res]) => {
+      moradorApi.getMoradores(token),
+    ]).then(([enc, res, mor]) => {
       if (enc.status === 'fulfilled') setEncomendas(enc.value);
       if (res.status === 'fulfilled') {
-        // Only future/active reservas
         const now = new Date().toISOString().split('T')[0];
         setReservas(res.value.filter(r => r.canceladaEm === null && r.data >= now));
       }
+      if (mor.status === 'fulfilled') setMoradores(mor.value);
       setLoading(false);
     });
   }, [token]);
@@ -179,11 +181,70 @@ export default function MoradorDashboard() {
           </div>
         </motion.div>
 
+        {/* Moradores do AP */}
+        {(loading || (moradores && moradores.length > 0)) && (
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: 0.05 }}
+          >
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-xs font-semibold text-ink/50 uppercase tracking-wider">Moradores</p>
+              <Link href="/me/perfil" className="text-xs text-brand hover:underline flex items-center gap-1">
+                Gerenciar <ArrowRight className="w-3 h-3" />
+              </Link>
+            </div>
+            {loading ? (
+              <div className="flex gap-3 overflow-x-auto pb-1 no-scrollbar">
+                {[1, 2, 3].map(i => (
+                  <div key={i} className="w-20 shrink-0 h-24 bg-bone rounded-2xl animate-pulse" />
+                ))}
+              </div>
+            ) : (
+              <div className="flex gap-3 overflow-x-auto pb-1 no-scrollbar">
+                {(moradores ?? []).map(m => (
+                  <Link
+                    key={m.id}
+                    href="/me/perfil"
+                    className="flex flex-col items-center gap-2 w-20 shrink-0 p-3 rounded-2xl bg-white border border-bone-dark/60 hover:border-brand transition-colors text-center"
+                  >
+                    <div className="w-12 h-12 rounded-full overflow-hidden bg-brand flex items-center justify-center shrink-0">
+                      {m.fotoUrl ? (
+                        <img src={m.fotoUrl} alt={m.nome} className="w-full h-full object-cover" />
+                      ) : (
+                        <span className="font-display font-bold text-white text-xs">
+                          {m.nome.split(' ').filter(Boolean).slice(0, 2).map(p => p[0]).join('').toUpperCase()}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[11px] font-medium text-ink leading-tight line-clamp-2">
+                      {m.nome.split(' ')[0]}
+                    </p>
+                    {m.statusFacial === 'REGISTRADO' ? (
+                      <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-full">
+                        ✓ Facial
+                      </span>
+                    ) : m.fotoUrl ? (
+                      <span className="text-[9px] font-bold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded-full">
+                        ⏳ Pendente
+                      </span>
+                    ) : (
+                      <span className="text-[9px] font-bold text-ink/40 bg-bone px-1.5 py-0.5 rounded-full">
+                        Sem foto
+                      </span>
+                    )}
+                  </Link>
+                ))}
+              </div>
+            )}
+          </motion.div>
+        )}
+
         {/* Quick actions */}
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, delay: 0.05 }}
+          transition={{ duration: 0.4, delay: 0.1 }}
         >
           <p className="text-xs font-semibold text-ink/50 uppercase tracking-wider mb-3">Acesso rápido</p>
           <div className="grid grid-cols-3 gap-3">
@@ -213,7 +274,7 @@ export default function MoradorDashboard() {
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, delay: 0.1 }}
+          transition={{ duration: 0.4, delay: 0.15 }}
           className="card space-y-3"
         >
           <div className="flex items-center justify-between">
@@ -265,7 +326,7 @@ export default function MoradorDashboard() {
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, delay: 0.15 }}
+          transition={{ duration: 0.4, delay: 0.2 }}
           className="card space-y-3"
         >
           <div className="flex items-center justify-between">

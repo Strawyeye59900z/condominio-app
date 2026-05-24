@@ -204,18 +204,17 @@ export class ReservasService {
     if (espaco === Espaco.QUADRA) {
       const reservas = await this.prisma.reserva.findMany({
         where: { espaco: Espaco.QUADRA, data, canceladaEm: null },
-        select: { horaInicio: true, duracaoHoras: true, apartamento: { select: { numero: true } } },
+        select: { horaInicio: true, duracaoHoras: true },
       });
-      // Retorna os slots ocupados
-      return {
-        espaco,
-        data: dataStr,
-        slotsOcupados: reservas.map((r) => ({
-          horaInicio: r.horaInicio,
-          horaFim: (r.horaInicio ?? 0) + (r.duracaoHoras ?? 0),
-          ap: r.apartamento.numero,
-        })),
-      };
+      // Retorna array de slots (7h–20h) com flag disponivel para o front
+      return Array.from({ length: 14 }, (_, i) => {
+        const h = 7 + i;
+        const ocupado = reservas.some((r) => {
+          const rFim = (r.horaInicio ?? 0) + (r.duracaoHoras ?? 0);
+          return h >= (r.horaInicio ?? 0) && h < rFim;
+        });
+        return { horaInicio: h, disponivel: !ocupado };
+      });
     }
 
     // Churrasqueira / Salão

@@ -357,6 +357,10 @@ export default function PerfilPage() {
     if (editingMorador === 'new') {
       const m = await moradorApi.createMorador(token, data);
       setMoradores(prev => [...prev, m]);
+      setEditingMorador(null);
+      // Inicia o fluxo de foto imediatamente após criar morador
+      startUploadFlow(m);
+      return;
     } else if (editingMorador) {
       const m = await moradorApi.updateMorador(token, editingMorador.id, data);
       setMoradores(prev => prev.map(x => x.id === m.id ? m : x));

@@ -67,7 +67,7 @@ function EncomendaCard({
     setErr(null);
     start(async () => {
       try {
-        onBaixa(enc.id);
+        await onBaixa(enc.id);
       } catch (e) {
         setErr(e instanceof ApiError ? e.message : 'Erro ao confirmar retirada.');
         setConfirming(false);

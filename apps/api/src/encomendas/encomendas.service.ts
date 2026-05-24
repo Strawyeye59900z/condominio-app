@@ -189,7 +189,8 @@ export class EncomendasService {
         recebidaEm: true,
         retiradaEm: true,
         editavelAte: true,
-        morador: { select: { nome: true } },
+        whatsappStatus: true,
+        morador: { select: { id: true, nome: true } },
       },
     });
   }

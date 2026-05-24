@@ -68,6 +68,10 @@
   }
 }
 
+/* Esconde scrollbar mantendo scroll funcional */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
 /* Textura marble para o lado escuro do login */
 .marble-bg {
   background-image:
