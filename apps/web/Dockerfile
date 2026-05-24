@@ -1,5 +1,5 @@
 # ===== Stage 1: deps =====
-FROM node:20-alpine AS deps
+FROM node:20-bookworm-slim AS deps
 WORKDIR /repo
 
 COPY package.json package-lock.json* ./
@@ -14,10 +14,9 @@ RUN --mount=type=cache,target=/root/.npm \
     fi
 
 # ===== Stage 2: build =====
-FROM node:20-alpine AS build
+FROM node:20-bookworm-slim AS build
 WORKDIR /repo
 
-# Copia toda a árvore com node_modules (suporta hoisting)
 COPY --from=deps /repo /repo
 COPY . .
 
@@ -25,14 +24,16 @@ ENV NEXT_TELEMETRY_DISABLED=1
 RUN npm --workspace apps/web run build
 
 # ===== Stage 3: runtime =====
-FROM node:20-alpine AS runtime
+FROM node:20-bookworm-slim AS runtime
 WORKDIR /app
 
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
-RUN apk add --no-cache wget
 
-# Next standalone empacota o necessário (server.js + node_modules mínimos)
+RUN apt-get update -qq && \
+    apt-get install -y --no-install-recommends wget ca-certificates && \
+    rm -rf /var/lib/apt/lists/*
+
 COPY --from=build /repo/apps/web/.next/standalone ./
 COPY --from=build /repo/apps/web/.next/static ./apps/web/.next/static
 COPY --from=build /repo/apps/web/public ./apps/web/public

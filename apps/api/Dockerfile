@@ -1,6 +1,10 @@
 # ===== Stage 1: deps =====
-FROM node:20-alpine AS deps
+FROM node:20-bookworm-slim AS deps
 WORKDIR /repo
+
+RUN apt-get update -qq && \
+    apt-get install -y --no-install-recommends openssl ca-certificates && \
+    rm -rf /var/lib/apt/lists/*
 
 COPY package.json package-lock.json* ./
 COPY apps/api/package.json ./apps/api/
@@ -15,28 +19,27 @@ RUN --mount=type=cache,target=/root/.npm \
     fi
 
 # ===== Stage 2: build =====
-FROM node:20-alpine AS build
+FROM node:20-bookworm-slim AS build
 WORKDIR /repo
 
-# Copia toda a árvore com node_modules (qualquer layout do hoisting)
-COPY --from=deps /repo /repo
+RUN apt-get update -qq && \
+    apt-get install -y --no-install-recommends openssl ca-certificates && \
+    rm -rf /var/lib/apt/lists/*
 
-# Sobrepõe com o source code (sem node_modules — .dockerignore garante)
+COPY --from=deps /repo /repo
 COPY . .
 
-# Gera Prisma Client
 RUN npx prisma generate --schema=prisma/schema.prisma
-
-# Build do TypeScript
 RUN npm --workspace apps/api run build
 
 # ===== Stage 3: runtime =====
-FROM node:20-alpine AS runtime
+FROM node:20-bookworm-slim AS runtime
 WORKDIR /app
 
-RUN apk add --no-cache wget
+RUN apt-get update -qq && \
+    apt-get install -y --no-install-recommends openssl ca-certificates wget && \
+    rm -rf /var/lib/apt/lists/*
 
-# Copia toda a build (inclui node_modules na raiz e/ou nos workspaces)
 COPY --from=build /repo/apps/api/dist ./dist
 COPY --from=build /repo/apps/api/package.json ./package.json
 COPY --from=build /repo/prisma ./prisma
