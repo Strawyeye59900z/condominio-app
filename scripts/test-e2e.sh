@@ -78,20 +78,38 @@ if [ "$STATUS" = "200" ]; then
   AP_ID=$(grep -o '"apartamentoId":"[^"]*' /tmp/e2e_resp.json | cut -d'"' -f4)
   ok "POST /auth/morador/login → 200"
 
+  # Tenta mudar senha (pode ja ter sido mudada em execucao anterior)
   STATUS=$(api -X POST "$BASE_URL/api/v1/auth/change-password" \
     -H "Authorization: Bearer $TOKEN_MORADOR" \
     -H "Content-Type: application/json" \
     -d '{"senhaAtual":"teste123","novaSenha":"nova123"}')
-  [ "$STATUS" = "204" ] && ok "POST /auth/change-password → 204" || info "change-password status=$STATUS (pode ja ter sido trocada)"
 
-  STATUS=$(api -X POST "$BASE_URL/api/v1/auth/morador/login" \
-    -H "Content-Type: application/json" \
-    -d '{"numeroAp":"te01","senha":"nova123"}')
-  if [ "$STATUS" = "200" ]; then
-    TOKEN_MORADOR=$(grep -o '"accessToken":"[^"]*' /tmp/e2e_resp.json | cut -d'"' -f4)
-    ok "Login com nova senha → 200"
+  if [ "$STATUS" = "204" ]; then
+    ok "POST /auth/change-password → 204"
+    # Login novamente com nova senha
+    STATUS=$(api -X POST "$BASE_URL/api/v1/auth/morador/login" \
+      -H "Content-Type: application/json" \
+      -d '{"numeroAp":"te01","senha":"nova123"}')
+    if [ "$STATUS" = "200" ]; then
+      TOKEN_MORADOR=$(grep -o '"accessToken":"[^"]*' /tmp/e2e_resp.json | cut -d'"' -f4)
+      ok "Login com nova senha → 200"
+    fi
+  elif [ "$STATUS" = "403" ] || [ "$STATUS" = "400" ]; then
+    # Ja foi trocada em execucao anterior, tenta login com nova senha
+    info "Senha ja foi alterada antes, tentando com nova senha..."
+    STATUS=$(api -X POST "$BASE_URL/api/v1/auth/morador/login" \
+      -H "Content-Type: application/json" \
+      -d '{"numeroAp":"te01","senha":"nova123"}')
+    if [ "$STATUS" = "200" ]; then
+      TOKEN_MORADOR=$(grep -o '"accessToken":"[^"]*' /tmp/e2e_resp.json | cut -d'"' -f4)
+      ok "Login com nova senha (ja foi trocada antes) → 200"
+    else
+      fail "change-password" "status=$STATUS (senha ja foi trocada, mas new senha tb nao funciona)"
+      TOKEN_MORADOR=""
+    fi
   else
-    ok "Login com senha atual (ja foi trocada antes)"
+    fail "change-password" "status=$STATUS"
+    TOKEN_MORADOR=""
   fi
 else
   fail "POST /auth/morador/login (te01)" "status=$STATUS"
