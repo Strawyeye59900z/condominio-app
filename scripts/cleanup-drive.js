@@ -10,33 +10,30 @@ const fs = require('fs');
 const path = require('path');
 const { google } = require('googleapis');
 
-const CREDENTIALS_PATH = path.join(
-  process.env.INSTALL_DIR || '/opt/condominio',
-  'secrets',
-  'gdrive.json'
-);
-
 async function cleanupDrive() {
   const args = process.argv.slice(2);
   const folderPath = args[0] || 'Backups/';
   const keepDays = parseInt(args[args.indexOf('--keep-days') + 1] || '7', 10);
 
-  if (!fs.existsSync(CREDENTIALS_PATH)) {
-    console.error(`Erro: arquivo de credenciais não encontrado: ${CREDENTIALS_PATH}`);
-    process.exit(1);
-  }
-
   try {
-    const credentials = JSON.parse(fs.readFileSync(CREDENTIALS_PATH, 'utf-8'));
+    // Carrega credenciais OAuth2 do .env
+    const clientId = process.env.GDRIVE_OAUTH_CLIENT_ID;
+    const clientSecret = process.env.GDRIVE_OAUTH_CLIENT_SECRET;
+    const refreshToken = process.env.GDRIVE_OAUTH_REFRESH_TOKEN;
+
+    if (!clientId || !clientSecret || !refreshToken) {
+      console.error('Erro: variáveis GDRIVE_OAUTH_* não configuradas no .env');
+      process.exit(1);
+    }
 
     const auth = new google.auth.OAuth2(
-      credentials.client_id,
-      credentials.client_secret,
-      credentials.redirect_uri || 'http://localhost:3000/auth/google/callback'
+      clientId,
+      clientSecret,
+      'http://localhost:3000/auth/google/callback'
     );
 
     auth.setCredentials({
-      refresh_token: credentials.refresh_token,
+      refresh_token: refreshToken,
     });
 
     const drive = google.drive({ version: 'v3', auth });
