@@ -14,6 +14,7 @@ import { FotosModule } from './fotos/fotos.module';
 import { FacialModule } from './facial/facial.module';
 import { EncomendasModule } from './encomendas/encomendas.module';
 import { WhatsAppModule } from './whatsapp/whatsapp.module';
+import { ReservasModule } from './reservas/reservas.module';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { RolesGuard } from './auth/guards/roles.guard';
 
@@ -33,6 +34,7 @@ import { RolesGuard } from './auth/guards/roles.guard';
     FacialModule,
     WhatsAppModule,
     EncomendasModule,
+    ReservasModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: JwtAuthGuard },
