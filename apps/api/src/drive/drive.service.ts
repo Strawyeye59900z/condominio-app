@@ -21,20 +21,36 @@ export class DriveService {
   private folderCache = new Map<string, string>(); // path -> folderId
 
   constructor(private readonly config: ConfigService) {
-    const saFile = this.config.getOrThrow<string>('GDRIVE_SA_FILE');
     this.rootFolderId = this.config.getOrThrow<string>('GDRIVE_ROOT_FOLDER_ID');
-    const auth = new google.auth.GoogleAuth({
-      keyFile: saFile,
-      scopes: ['https://www.googleapis.com/auth/drive'],
-    });
-    this.drive = google.drive({ version: 'v3', auth });
+
+    // Suporte a OAuth2 (conta pessoal) OU Service Account (Google Workspace)
+    const clientId = this.config.get<string>('GDRIVE_OAUTH_CLIENT_ID');
+    const clientSecret = this.config.get<string>('GDRIVE_OAUTH_CLIENT_SECRET');
+    const refreshToken = this.config.get<string>('GDRIVE_OAUTH_REFRESH_TOKEN');
+
+    if (clientId && clientSecret && refreshToken) {
+      // OAuth2 — usa a cota do Drive do usuário real (conta pessoal Gmail)
+      const oauth2 = new google.auth.OAuth2(clientId, clientSecret);
+      oauth2.setCredentials({ refresh_token: refreshToken });
+      this.drive = google.drive({ version: 'v3', auth: oauth2 });
+      this.logger.log('DriveService: usando autenticação OAuth2 (conta pessoal)');
+    } else {
+      // Service Account — requer Google Workspace (Shared Drive)
+      const saFile = this.config.getOrThrow<string>('GDRIVE_SA_FILE');
+      const auth = new google.auth.GoogleAuth({
+        keyFile: saFile,
+        scopes: ['https://www.googleapis.com/auth/drive'],
+      });
+      this.drive = google.drive({ version: 'v3', auth });
+      this.logger.log('DriveService: usando Service Account');
+    }
   }
 
   // ===== API pública =====
 
   async uploadOrUpdate(args: {
     relativePath: string; // ex: "Fotos/101"
-    filename: string; // ex: "AP101_Joao.jpg"
+    filename: string;     // ex: "AP101_Joao.jpg"
     mimeType: string;
     buffer: Buffer;
     existingDriveId?: string | null;
@@ -47,7 +63,6 @@ export class DriveService {
       };
 
       if (args.existingDriveId) {
-        // update mantém o id
         const res = await this.drive.files.update({
           fileId: args.existingDriveId,
           media,
