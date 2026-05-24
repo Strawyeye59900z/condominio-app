@@ -175,8 +175,9 @@ export class EncomendasService {
   // ===== Morador: listar suas encomendas =====
   listMorador(apartamentoId: string, status?: string) {
     const where: Record<string, unknown> = { apartamentoId };
-    if (status === 'pendente') where.status = StatusEncomenda.PENDENTE;
-    else if (status === 'retirada') where.status = StatusEncomenda.RETIRADA;
+    const statusUpper = status?.toUpperCase();
+    if (statusUpper === 'PENDENTE') where.status = StatusEncomenda.PENDENTE;
+    else if (statusUpper === 'RETIRADA') where.status = StatusEncomenda.RETIRADA;
 
     return this.prisma.encomenda.findMany({
       where,

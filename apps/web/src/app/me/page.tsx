@@ -13,6 +13,9 @@ import {
   Clock,
   MapPin,
   Star,
+  Utensils,
+  Music,
+  Activity,
 } from 'lucide-react';
 import { session, type SessionUser } from '@/lib/auth';
 import { moradorApi, type Encomenda, type Reserva, type MoradorDoAp } from '@/lib/api';
@@ -131,7 +134,10 @@ export default function MoradorDashboard() {
         const now = new Date().toISOString().split('T')[0];
         setReservas(res.value.filter(r => r.canceladaEm === null && r.data >= now));
       }
-      if (mor.status === 'fulfilled') setMoradores(mor.value);
+      if (mor.status === 'fulfilled') {
+        setMoradores(mor.value);
+        console.log('Moradores carregados:', mor.value);
+      }
       setLoading(false);
     });
   }, [token]);
@@ -363,7 +369,9 @@ export default function MoradorDashboard() {
                     className="flex items-center gap-3 p-3 rounded-xl border border-bone-dark/50"
                   >
                     <div className={cn('w-8 h-8 rounded-lg flex items-center justify-center shrink-0', ESPACO_COLOR[r.espaco] ?? 'bg-bone text-ink/50')}>
-                      <MapPin className="w-3.5 h-3.5" />
+                      {r.espaco === 'QUADRA' && <Activity className="w-3.5 h-3.5" />}
+                      {r.espaco === 'CHURRASQUEIRA' && <Utensils className="w-3.5 h-3.5" />}
+                      {r.espaco === 'SALAO_FESTAS' && <Music className="w-3.5 h-3.5" />}
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="text-xs font-semibold text-ink">{ESPACO_LABEL[r.espaco]}</p>
