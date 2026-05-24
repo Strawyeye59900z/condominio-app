@@ -1,0 +1,15 @@
+# Default: deixa o git decidir (text=auto)
+* text=auto eol=lf
+
+# Scripts shell e arquivos Linux PRECISAM ser LF (executados no LXC)
+*.sh        text eol=lf
+*.bash      text eol=lf
+Dockerfile  text eol=lf
+
+# Binários
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.ico  binary
+*.pdf  binary
