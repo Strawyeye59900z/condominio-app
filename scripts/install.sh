@@ -44,8 +44,9 @@ case "$ID" in
   *) fail "OS não suportado: $ID (suporta ubuntu/debian)" ;;
 esac
 
-log "Verificando conectividade..."
-curl -fsS --max-time 5 https://hub.docker.com > /dev/null || fail "Sem internet (hub.docker.com)"
+log "Verificando conectividade (IPv4)..."
+# -4 força IPv4: LXC do Proxmox frequentemente recebe AAAA no DNS mas sem rota IPv6.
+curl -4 -fsS --max-time 15 https://hub.docker.com > /dev/null || fail "Sem internet IPv4 (hub.docker.com)"
 ok "Conectividade OK"
 
 # ----- coleta interativa -----
@@ -78,13 +79,15 @@ EVOLUTION_API_KEY=$(gen_secret | head -c 40)
 # ----- 1. Dependências do host -----
 log "Atualizando apt e instalando dependências base..."
 export DEBIAN_FRONTEND=noninteractive
+# Força apt a usar IPv4 (LXC pode não ter rota IPv6 externa funcional)
+echo 'Acquire::ForceIPv4 "true";' > /etc/apt/apt.conf.d/99force-ipv4
 apt-get update -qq
 apt-get install -y -qq curl ca-certificates gnupg git cron openssl wget jq
 
 # ----- 2. Docker -----
 if ! command -v docker >/dev/null 2>&1; then
   log "Instalando Docker..."
-  curl -fsSL https://get.docker.com | sh
+  curl -4 -fsSL https://get.docker.com | sh
   systemctl enable --now docker
   ok "Docker instalado"
 else
@@ -97,7 +100,7 @@ docker compose version >/dev/null 2>&1 || fail "Docker Compose v2 ausente"
 if ! command -v cloudflared >/dev/null 2>&1; then
   log "Instalando cloudflared (repo oficial Cloudflare)..."
   mkdir -p --mode=0755 /usr/share/keyrings
-  curl -fsSL https://pkg.cloudflare.com/cloudflare-main.gpg | tee /usr/share/keyrings/cloudflare-main.gpg >/dev/null
+  curl -4 -fsSL https://pkg.cloudflare.com/cloudflare-main.gpg | tee /usr/share/keyrings/cloudflare-main.gpg >/dev/null
   echo "deb [signed-by=/usr/share/keyrings/cloudflare-main.gpg] https://pkg.cloudflare.com/cloudflared $VERSION_CODENAME main" \
     | tee /etc/apt/sources.list.d/cloudflared.list >/dev/null
   apt-get update -qq
