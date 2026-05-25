@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import * as QRCode from 'qrcode';
 
 export type WhatsAppSendResult =
   | { ok: true }
@@ -38,19 +39,55 @@ export class WhatsAppService {
     });
   }
 
+  get instanceName() { return this.instance; }
+
   /** Verifica se a instância do WhatsApp está conectada. */
-  async status(): Promise<{ connected: boolean; state?: string }> {
+  async status(): Promise<{ connected: boolean; state?: string; instance: string }> {
     try {
       const res = await fetch(
         `${this.baseUrl}/instance/connectionState/${this.instance}`,
         { headers: { apikey: this.apiKey } },
       );
-      if (!res.ok) return { connected: false, state: 'http_error' };
+      if (!res.ok) return { connected: false, state: 'http_error', instance: this.instance };
       const data = (await res.json()) as { instance?: { state?: string } };
       const state = data?.instance?.state ?? 'unknown';
-      return { connected: state === 'open', state };
+      return { connected: state === 'open', state, instance: this.instance };
     } catch (e) {
-      return { connected: false, state: (e as Error).message };
+      return { connected: false, state: String(e), instance: this.instance };
+    }
+  }
+
+  /** Retorna QR code como data URL PNG para conexão da instância. */
+  async getQrCode(): Promise<{ qrDataUrl: string } | null> {
+    try {
+      const res = await fetch(
+        `${this.baseUrl}/instance/connect/${this.instance}`,
+        { headers: { apikey: this.apiKey } },
+      );
+      if (!res.ok) return null;
+      const data = (await res.json()) as { code?: string; base64?: string };
+      // Algumas versões da Evolution retornam base64 diretamente
+      if (data.base64) return { qrDataUrl: data.base64 };
+      if (data.code) {
+        const qrDataUrl = await QRCode.toDataURL(data.code, { width: 300, margin: 2 });
+        return { qrDataUrl };
+      }
+      return null;
+    } catch (e) {
+      this.logger.error(`getQrCode falhou: ${(e as Error).message}`);
+      return null;
+    }
+  }
+
+  /** Desconecta a instância do WhatsApp. */
+  async disconnect(): Promise<void> {
+    try {
+      await fetch(`${this.baseUrl}/instance/logout/${this.instance}`, {
+        method: 'DELETE',
+        headers: { apikey: this.apiKey },
+      });
+    } catch (e) {
+      this.logger.warn(`disconnect: ${(e as Error).message}`);
     }
   }
 

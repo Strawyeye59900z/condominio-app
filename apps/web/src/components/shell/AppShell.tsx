@@ -20,6 +20,7 @@ import {
   X,
   ChevronRight,
   Bell,
+  MessageSquare,
 } from 'lucide-react';
 import { session, type SessionUser } from '@/lib/auth';
 import { authApi } from '@/lib/api';
@@ -42,6 +43,7 @@ const NAV: Record<string, NavItem[]> = {
     { label: 'Reservas',    href: '/admin/reservas',     icon: Calendar },
     { label: 'Fila Facial', href: '/admin/facial',       icon: Camera },
     { label: 'Relatórios',  href: '/admin/relatorios',   icon: FileText },
+    { label: 'WhatsApp',    href: '/admin/whatsapp',     icon: MessageSquare },
   ],
   funcionario: [
     { label: 'Portaria',    href: '/porteiro',            icon: Building2 },

@@ -180,8 +180,8 @@ export const adminApi = {
   createFuncionario: (token: string, body: { loginId: string; nome: string; senhaProvisoria: string }) =>
     api<FuncionarioAdmin>('/admin/funcionarios', { method: 'POST', token, body }),
 
-  patchFuncionario: (token: string, id: string, body: { ativo?: boolean; resetSenha?: string }) =>
-    api<FuncionarioAdmin>(`/admin/funcionarios/${id}`, { method: 'PATCH', token, body }),
+  patchFuncionario: (token: string, id: string, body: { nome?: string; ativo?: boolean; resetarSenha?: boolean }) =>
+    api<{ id: string; senhaProvisoria?: string }>(`/admin/funcionarios/${id}`, { method: 'PATCH', token, body }),
 
   getEncomendas: (token: string, status?: string) =>
     api<Encomenda[]>(`/admin/encomendas${qs({ status })}`, { token }),
@@ -200,6 +200,21 @@ export const adminApi = {
 
   postFacialRegistrado: (token: string, moradorId: string) =>
     api<void>(`/admin/facial-queue/${moradorId}/registrado`, { method: 'POST', token }),
+
+  getWhatsAppStatus: (token: string) =>
+    api<{ connected: boolean; state: string; instance: string }>('/admin/whatsapp/status', { token }),
+
+  getWhatsAppQrCode: (token: string) =>
+    api<{ qrDataUrl: string } | null>('/admin/whatsapp/qrcode', { token }),
+
+  disconnectWhatsApp: (token: string) =>
+    api<void>('/admin/whatsapp/disconnect', { method: 'POST', token }),
+
+  getRelatorio: (token: string, inicio: string, fim: string) =>
+    api<Response>(`/admin/reservas/relatorio.pdf${qs({ inicio, fim })}`, { token, raw: true }),
+
+  patchEncomendaAdmin: (token: string, id: string, body: { tipo?: string }) =>
+    api<Encomenda>(`/admin/encomendas/${id}`, { method: 'PATCH', token, body }),
 };
 
 // ===== Porteiro API =====
