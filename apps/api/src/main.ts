@@ -16,7 +16,7 @@ async function bootstrap() {
 
   // Security headers
   app.use(helmet({
-    crossOriginResourcePolicy: { policy: 'cross-origin' }, // permite imagens do Drive
+    crossOriginResourcePolicy: { policy: 'same-site' },
   }));
 
   // CORS estrito ao domínio configurado

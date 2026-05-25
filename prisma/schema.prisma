@@ -59,8 +59,7 @@ model Morador {
   apartamento    Apartamento  @relation(fields: [apartamentoId], references: [id], onDelete: Cascade)
   nome           String
   telefone       String                                      // E.164: +5511999999999
-  fotoUrl        String?      @map("foto_url")
-  fotoDriveId    String?      @map("foto_drive_id")          // id do arquivo no Drive (p/ overwrite)
+  fotoUrl        String?      @map("foto_url")               // path relativo em uploads/ (ex: fotos/101/nome.jpg)
   statusFacial   StatusFacial @default(PENDENTE) @map("status_facial")
   consentLgpdAt  DateTime?    @map("consent_lgpd_at")
   consentLgpdIp  String?      @map("consent_lgpd_ip")

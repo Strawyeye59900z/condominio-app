@@ -85,15 +85,10 @@ services:
       EVOLUTION_API_URL: ${EVOLUTION_API_URL}
       EVOLUTION_API_KEY: ${EVOLUTION_API_KEY}
       EVOLUTION_INSTANCE: ${EVOLUTION_INSTANCE}
-      GDRIVE_SA_FILE: ${GDRIVE_SA_FILE}
-      GDRIVE_ROOT_FOLDER_ID: ${GDRIVE_ROOT_FOLDER_ID}
-      GDRIVE_OAUTH_CLIENT_ID: ${GDRIVE_OAUTH_CLIENT_ID:-}
-      GDRIVE_OAUTH_CLIENT_SECRET: ${GDRIVE_OAUTH_CLIENT_SECRET:-}
-      GDRIVE_OAUTH_REFRESH_TOKEN: ${GDRIVE_OAUTH_REFRESH_TOKEN:-}
       API_PORT: ${API_PORT}
       TZ: ${TZ}
     volumes:
-      - ./secrets:/secrets:ro
+      - ./uploads:/app/uploads
     networks: [condominio_net]
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:${API_PORT}/api/v1/health || exit 1"]

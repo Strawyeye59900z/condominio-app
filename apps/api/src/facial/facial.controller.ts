@@ -19,7 +19,7 @@ import { DriveService } from '../drive/drive.service';
 export class FacialController {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly drive: DriveService,
+    private readonly storage: DriveService,
   ) {}
 
   // Próximo da fila (PENDENTE + tem foto)
@@ -28,7 +28,7 @@ export class FacialController {
     const m = await this.prisma.morador.findFirst({
       where: {
         statusFacial: StatusFacial.PENDENTE,
-        fotoDriveId: { not: null },
+        fotoUrl: { not: null },
         ativo: true,
       },
       orderBy: { createdAt: 'asc' },
@@ -58,16 +58,16 @@ export class FacialController {
     };
   }
 
-  // Stream da imagem (proxy — não expõe URL do Drive ao browser)
+  // Stream da imagem (proxy autenticado)
   @Get(':id/foto')
   async foto(@Param('id') id: string, @Res() res: Response): Promise<void> {
     const m = await this.prisma.morador.findUnique({
       where: { id },
-      select: { fotoDriveId: true },
+      select: { fotoUrl: true },
     });
-    if (!m?.fotoDriveId) throw new NotFoundException('Foto não encontrada');
+    if (!m?.fotoUrl) throw new NotFoundException('Foto não encontrada');
 
-    const { buffer, mimeType } = await this.drive.download(m.fotoDriveId);
+    const { buffer, mimeType } = await this.storage.readFile(m.fotoUrl);
     res.setHeader('Content-Type', mimeType);
     res.setHeader('Cache-Control', 'no-store');
     res.send(buffer);
@@ -80,9 +80,9 @@ export class FacialController {
       where: { id },
       include: { apartamento: { select: { numero: true } } },
     });
-    if (!m?.fotoDriveId) throw new NotFoundException('Foto não encontrada');
+    if (!m?.fotoUrl) throw new NotFoundException('Foto não encontrada');
 
-    const { buffer, mimeType } = await this.drive.download(m.fotoDriveId);
+    const { buffer, mimeType } = await this.storage.readFile(m.fotoUrl);
     const ext = mimeType.split('/')[1] || 'jpg';
     const safe = m.nome.replace(/[^a-zA-Z0-9]+/g, '_').slice(0, 40);
     const filename = `AP${m.apartamento.numero}_${safe}.${ext}`;
@@ -91,7 +91,7 @@ export class FacialController {
     res.send(buffer);
   }
 
-  // Marca como REGISTRADO (síndico já cadastrou na leitora física)
+  // Marca como REGISTRADO
   @Post(':id/registrado')
   @HttpCode(HttpStatus.NO_CONTENT)
   async marcar(@Param('id') id: string): Promise<void> {

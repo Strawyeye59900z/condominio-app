@@ -3,22 +3,26 @@ import {
   Body,
   Controller,
   ForbiddenException,
+  Get,
   HttpCode,
   HttpStatus,
+  NotFoundException,
   Param,
   ParseFilePipe,
   Post,
   Req,
+  Res,
   UploadedFile,
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import type { Request } from 'express';
+import type { Request, Response } from 'express';
 import { AllowMustChangePassword } from '../auth/decorators/allow-must-change-password.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import type { RequestUser } from '../auth/types/auth.types';
 import { PrismaService } from '../prisma/prisma.service';
+import { DriveService } from '../drive/drive.service';
 import { FotosService } from './fotos.service';
 import { REGRAS } from '../common/regras';
 
@@ -27,11 +31,11 @@ export class FotosController {
   constructor(
     private readonly fotos: FotosService,
     private readonly prisma: PrismaService,
+    private readonly storage: DriveService,
   ) {}
 
-  // ===== Termo LGPD (aceite explícito antes do upload) =====
+  // ===== Termo LGPD =====
   @Roles('morador')
-  @AllowMustChangePassword() // pode aceitar antes de trocar senha? não — exige troca de senha primeiro
   @Post('me/consent-lgpd')
   @HttpCode(HttpStatus.NO_CONTENT)
   async consentLgpd(
@@ -54,19 +58,38 @@ export class FotosController {
     });
   }
 
+  // ===== Visualizar foto de morador do próprio AP (morador autenticado) =====
+  @Roles('morador')
+  @Get('me/foto/:moradorId')
+  async verFotoMorador(
+    @CurrentUser() user: RequestUser,
+    @Param('moradorId') moradorId: string,
+    @Res() res: Response,
+  ): Promise<void> {
+    if (!user.apartamentoId) throw new ForbiddenException();
+    const m = await this.prisma.morador.findUnique({
+      where: { id: moradorId },
+      select: { fotoUrl: true, apartamentoId: true },
+    });
+    if (!m || m.apartamentoId !== user.apartamentoId) {
+      throw new ForbiddenException('Foto não pertence ao seu apartamento');
+    }
+    if (!m.fotoUrl) throw new NotFoundException('Foto não encontrada');
+
+    const { buffer, mimeType } = await this.storage.readFile(m.fotoUrl);
+    res.setHeader('Content-Type', mimeType);
+    res.setHeader('Cache-Control', 'private, max-age=300');
+    res.send(buffer);
+  }
+
   // ===== Upload da foto do morador =====
   @Roles('morador')
   @Post('me/foto/:moradorId')
-  @UseInterceptors(
-    FileInterceptor('foto', {
-      limits: { fileSize: REGRAS.fotoMaxBytes },
-    }),
-  )
+  @UseInterceptors(FileInterceptor('foto', { limits: { fileSize: REGRAS.fotoMaxBytes } }))
   async uploadMorador(
     @CurrentUser() user: RequestUser,
     @Param('moradorId') moradorId: string,
-    @UploadedFile(new ParseFilePipe({ fileIsRequired: true }))
-    file: Express.Multer.File,
+    @UploadedFile(new ParseFilePipe({ fileIsRequired: true })) file: Express.Multer.File,
   ) {
     if (!user.apartamentoId) throw new ForbiddenException();
     return this.fotos.uploadMorador({
@@ -77,19 +100,14 @@ export class FotosController {
     });
   }
 
-  // ===== Upload da foto do funcionário (1º login) =====
+  // ===== Upload da foto do funcionário =====
   @Roles('funcionario')
-  @AllowMustChangePassword() // exigido no 1º login
+  @AllowMustChangePassword()
   @Post('porteiro/me/foto')
-  @UseInterceptors(
-    FileInterceptor('foto', {
-      limits: { fileSize: REGRAS.fotoMaxBytes },
-    }),
-  )
+  @UseInterceptors(FileInterceptor('foto', { limits: { fileSize: REGRAS.fotoMaxBytes } }))
   async uploadFuncionario(
     @CurrentUser() user: RequestUser,
-    @UploadedFile(new ParseFilePipe({ fileIsRequired: true }))
-    file: Express.Multer.File,
+    @UploadedFile(new ParseFilePipe({ fileIsRequired: true })) file: Express.Multer.File,
   ) {
     return this.fotos.uploadFuncionario({
       funcionarioId: user.id,

@@ -20,6 +20,7 @@ import {
 import { session, type SessionUser } from '@/lib/auth';
 import { moradorApi, type Encomenda, type Reserva, type MoradorDoAp } from '@/lib/api';
 import { AppShell } from '@/components/shell/AppShell';
+import { AuthImage } from '@/components/AuthImage';
 import { cn } from '@/lib/cn';
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -134,10 +135,7 @@ export default function MoradorDashboard() {
         const now = new Date().toISOString().split('T')[0];
         setReservas(res.value.filter(r => r.canceladaEm === null && r.data >= now));
       }
-      if (mor.status === 'fulfilled') {
-        setMoradores(mor.value);
-        console.log('Moradores carregados:', mor.value);
-      }
+      if (mor.status === 'fulfilled') setMoradores(mor.value);
       setLoading(false);
     });
   }, [token]);
@@ -218,7 +216,16 @@ export default function MoradorDashboard() {
                   >
                     <div className="w-12 h-12 rounded-full overflow-hidden bg-brand flex items-center justify-center shrink-0">
                       {m.fotoUrl ? (
-                        <img src={m.fotoUrl} alt={m.nome} className="w-full h-full object-cover" />
+                        <AuthImage
+                          moradorId={m.id}
+                          alt={m.nome}
+                          className="w-full h-full object-cover"
+                          fallback={
+                            <span className="font-display font-bold text-white text-xs">
+                              {m.nome.split(' ').filter(Boolean).slice(0, 2).map(p => p[0]).join('').toUpperCase()}
+                            </span>
+                          }
+                        />
                       ) : (
                         <span className="font-display font-bold text-white text-xs">
                           {m.nome.split(' ').filter(Boolean).slice(0, 2).map(p => p[0]).join('').toUpperCase()}

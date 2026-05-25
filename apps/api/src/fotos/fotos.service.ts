@@ -17,7 +17,7 @@ const ALLOWED_MIME = new Set(['image/jpeg', 'image/png', 'image/webp']);
 export class FotosService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly drive: DriveService,
+    private readonly storage: DriveService,
   ) {}
 
   // ===== Upload de foto do morador =====
@@ -49,22 +49,15 @@ export class FotosService {
 
     const ext = mimeToExt(args.mimeType);
     const nome = normalizeName(morador.nome);
-    const filename = `AP${morador.apartamento.numero}_${nome}.${ext}`;
-    const relativePath = `Fotos/${morador.apartamento.numero}`;
+    // Estrutura: fotos/NUMERO_AP/nome_morador.ext
+    const relativePath = `fotos/${morador.apartamento.numero}/${nome}.${ext}`;
 
-    const uploaded = await this.drive.uploadOrUpdate({
-      relativePath,
-      filename,
-      mimeType: args.mimeType,
-      buffer: args.fileBuffer,
-      existingDriveId: morador.fotoDriveId,
-    });
+    await this.storage.saveFile(relativePath, args.fileBuffer);
 
     const updated = await this.prisma.morador.update({
       where: { id: morador.id },
       data: {
-        fotoUrl: uploaded.webViewLink ?? uploaded.webContentLink ?? null,
-        fotoDriveId: uploaded.driveId,
+        fotoUrl: relativePath,
         // statusFacial permanece PENDENTE; vira REGISTRADO só pelo síndico
       },
       select: {
@@ -74,10 +67,10 @@ export class FotosService {
       },
     });
 
-    return { ...updated, driveId: uploaded.driveId };
+    return updated;
   }
 
-  // ===== Upload de foto do funcionário (no 1º login) =====
+  // ===== Upload de foto do funcionário =====
   async uploadFuncionario(args: {
     funcionarioId: string;
     fileBuffer: Buffer;
@@ -92,23 +85,16 @@ export class FotosService {
 
     const ext = mimeToExt(args.mimeType);
     const nome = normalizeName(f.nome);
-    const filename = `FUNC_${f.loginId}_${nome}.${ext}`;
-    const relativePath = `Fotos/_funcionarios`;
+    const relativePath = `fotos/_funcionarios/${f.loginId}_${nome}.${ext}`;
 
-    const uploaded = await this.drive.uploadOrUpdate({
-      relativePath,
-      filename,
-      mimeType: args.mimeType,
-      buffer: args.fileBuffer,
-      existingDriveId: f.fotoUrl ? null : null, // sem driveId armazenado p/ funcionário; sempre re-upload
-    });
+    await this.storage.saveFile(relativePath, args.fileBuffer);
 
     await this.prisma.funcionario.update({
       where: { id: f.id },
-      data: { fotoUrl: uploaded.webViewLink ?? uploaded.webContentLink ?? null },
+      data: { fotoUrl: relativePath },
     });
 
-    return { id: f.id, fotoUrl: uploaded.webViewLink ?? uploaded.webContentLink ?? null };
+    return { id: f.id, fotoUrl: relativePath };
   }
 
   // ===== Validação =====
@@ -131,14 +117,10 @@ export class FotosService {
 
 function mimeToExt(mime: string): string {
   switch (mime) {
-    case 'image/jpeg':
-      return 'jpg';
-    case 'image/png':
-      return 'png';
-    case 'image/webp':
-      return 'webp';
-    default:
-      return 'jpg';
+    case 'image/jpeg': return 'jpg';
+    case 'image/png':  return 'png';
+    case 'image/webp': return 'webp';
+    default:           return 'jpg';
   }
 }
 
