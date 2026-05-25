@@ -145,7 +145,6 @@ export class MoradoresService {
     if (dto.ativo !== undefined) data.ativo = dto.ativo;
     if (dto.resetFoto) {
       data.fotoUrl = null;
-      data.fotoDriveId = null;
       data.statusFacial = StatusFacial.PENDENTE;
     }
     return this.prisma.morador.update({
