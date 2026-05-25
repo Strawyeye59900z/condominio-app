@@ -70,6 +70,129 @@ function daysUntil(dateStr: string) {
   return Math.round((d.getTime() - today.getTime()) / 86400000);
 }
 
+// ── Moradores carousel ────────────────────────────────────────────────────────
+
+function MoradoresCarousel({
+  moradores,
+  loading,
+}: {
+  moradores: MoradorDoAp[];
+  loading: boolean;
+}) {
+  const [idx, setIdx] = useState(0);
+
+  useEffect(() => {
+    if (moradores.length <= 1) return;
+    const timer = setInterval(() => setIdx(i => (i + 1) % moradores.length), 4000);
+    return () => clearInterval(timer);
+  }, [moradores.length]);
+
+  const m = moradores[idx];
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4, delay: 0.05 }}
+    >
+      <div className="flex items-center justify-between mb-3">
+        <p className="text-xs font-semibold text-ink/50 uppercase tracking-wider">Moradores</p>
+        <Link href="/me/perfil" className="text-xs text-brand hover:underline flex items-center gap-1">
+          Gerenciar <ArrowRight className="w-3 h-3" />
+        </Link>
+      </div>
+
+      {loading ? (
+        <div className="h-36 bg-bone rounded-2xl animate-pulse" />
+      ) : moradores.length === 0 ? null : (
+        <div className="relative">
+          <Link href="/me/perfil" className="block">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={m.id}
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                transition={{ duration: 0.3 }}
+                className="flex items-center gap-4 p-4 rounded-2xl bg-white border border-bone-dark/60 hover:border-brand transition-colors"
+              >
+                {/* Avatar grande */}
+                <div className="w-20 h-20 rounded-2xl overflow-hidden bg-brand flex items-center justify-center shrink-0">
+                  {m.fotoUrl ? (
+                    <AuthImage
+                      moradorId={m.id}
+                      alt={m.nome}
+                      className="w-full h-full object-cover"
+                      fallback={
+                        <span className="font-display font-bold text-white text-2xl">
+                          {m.nome.split(' ').filter(Boolean).slice(0, 2).map(p => p[0]).join('').toUpperCase()}
+                        </span>
+                      }
+                    />
+                  ) : (
+                    <span className="font-display font-bold text-white text-2xl">
+                      {m.nome.split(' ').filter(Boolean).slice(0, 2).map(p => p[0]).join('').toUpperCase()}
+                    </span>
+                  )}
+                </div>
+
+                {/* Info */}
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="font-display font-bold text-base text-ink truncate">{m.nome}</p>
+                    {m.isAdminAp && (
+                      <span className="text-[10px] font-bold bg-brand/10 text-brand px-1.5 py-0.5 rounded-full shrink-0">
+                        Admin AP
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-ink/50 mt-0.5 flex items-center gap-1">
+                    <Clock className="w-3 h-3" />
+                    Morador {idx + 1} de {moradores.length}
+                  </p>
+                  <div className="mt-2">
+                    {m.statusFacial === 'REGISTRADO' ? (
+                      <span className="text-[11px] font-semibold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full">
+                        ✓ Facial registrado
+                      </span>
+                    ) : m.fotoUrl ? (
+                      <span className="text-[11px] font-semibold text-amber-600 bg-amber-50 px-2 py-1 rounded-full">
+                        ⏳ Foto aguardando registro
+                      </span>
+                    ) : (
+                      <span className="text-[11px] font-semibold text-ink/40 bg-bone px-2 py-1 rounded-full">
+                        Sem foto cadastrada
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <ArrowRight className="w-4 h-4 text-ink/30 shrink-0" />
+              </motion.div>
+            </AnimatePresence>
+          </Link>
+
+          {/* Dots */}
+          {moradores.length > 1 && (
+            <div className="flex justify-center gap-1.5 mt-2">
+              {moradores.map((_, i) => (
+                <button
+                  key={i}
+                  onClick={() => setIdx(i)}
+                  className={cn(
+                    'rounded-full transition-all',
+                    i === idx ? 'w-4 h-1.5 bg-brand' : 'w-1.5 h-1.5 bg-bone-dark',
+                  )}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </motion.div>
+  );
+}
+
 // ── Quick action ──────────────────────────────────────────────────────────────
 
 function QuickAction({
@@ -187,72 +310,9 @@ export default function MoradorDashboard() {
           </div>
         </motion.div>
 
-        {/* Moradores do AP */}
+        {/* Moradores do AP — carousel */}
         {(loading || (moradores && moradores.length > 0)) && (
-          <motion.div
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, delay: 0.05 }}
-          >
-            <div className="flex items-center justify-between mb-3">
-              <p className="text-xs font-semibold text-ink/50 uppercase tracking-wider">Moradores</p>
-              <Link href="/me/perfil" className="text-xs text-brand hover:underline flex items-center gap-1">
-                Gerenciar <ArrowRight className="w-3 h-3" />
-              </Link>
-            </div>
-            {loading ? (
-              <div className="flex gap-3 overflow-x-auto pb-1 no-scrollbar">
-                {[1, 2, 3].map(i => (
-                  <div key={i} className="w-20 shrink-0 h-24 bg-bone rounded-2xl animate-pulse" />
-                ))}
-              </div>
-            ) : (
-              <div className="flex gap-3 overflow-x-auto pb-1 no-scrollbar">
-                {(moradores ?? []).map(m => (
-                  <Link
-                    key={m.id}
-                    href="/me/perfil"
-                    className="flex flex-col items-center gap-2 w-20 shrink-0 p-3 rounded-2xl bg-white border border-bone-dark/60 hover:border-brand transition-colors text-center"
-                  >
-                    <div className="w-12 h-12 rounded-full overflow-hidden bg-brand flex items-center justify-center shrink-0">
-                      {m.fotoUrl ? (
-                        <AuthImage
-                          moradorId={m.id}
-                          alt={m.nome}
-                          className="w-full h-full object-cover"
-                          fallback={
-                            <span className="font-display font-bold text-white text-xs">
-                              {m.nome.split(' ').filter(Boolean).slice(0, 2).map(p => p[0]).join('').toUpperCase()}
-                            </span>
-                          }
-                        />
-                      ) : (
-                        <span className="font-display font-bold text-white text-xs">
-                          {m.nome.split(' ').filter(Boolean).slice(0, 2).map(p => p[0]).join('').toUpperCase()}
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-[11px] font-medium text-ink leading-tight line-clamp-2">
-                      {m.nome.split(' ')[0]}
-                    </p>
-                    {m.statusFacial === 'REGISTRADO' ? (
-                      <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-full">
-                        ✓ Facial
-                      </span>
-                    ) : m.fotoUrl ? (
-                      <span className="text-[9px] font-bold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded-full">
-                        ⏳ Pendente
-                      </span>
-                    ) : (
-                      <span className="text-[9px] font-bold text-ink/40 bg-bone px-1.5 py-0.5 rounded-full">
-                        Sem foto
-                      </span>
-                    )}
-                  </Link>
-                ))}
-              </div>
-            )}
-          </motion.div>
+          <MoradoresCarousel moradores={moradores ?? []} loading={loading} />
         )}
 
         {/* Quick actions */}

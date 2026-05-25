@@ -21,6 +21,7 @@ import {
 import { useAuth } from '@/lib/useAuth';
 import { moradorApi, authApi, type MoradorDoAp, ApiError } from '@/lib/api';
 import { AppShell } from '@/components/shell/AppShell';
+import { AuthImage } from '@/components/AuthImage';
 import { cn } from '@/lib/cn';
 
 // ── helpers ─────────────────────────────────────────────────────────────────
@@ -710,11 +711,15 @@ export default function PerfilPage() {
                 >
                   <div className="w-12 h-12 rounded-xl overflow-hidden shrink-0 bg-bone flex items-center justify-center">
                     {m.fotoUrl ? (
-                      <img
-                        src={m.fotoUrl}
+                      <AuthImage
+                        moradorId={m.id}
                         alt={m.nome}
                         className="w-full h-full object-cover"
-                        onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                        fallback={
+                          <span className="font-display font-bold text-ink/30 text-sm">
+                            {initials(m.nome)}
+                          </span>
+                        }
                       />
                     ) : (
                       <span className="font-display font-bold text-ink/30 text-sm">
