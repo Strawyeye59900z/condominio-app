@@ -277,7 +277,7 @@ function PorteiroLogin({
         </button>
 
         <div className="flex items-center gap-4 p-4 bg-bone/60 rounded-xl">
-          <PorteiroAvatar foto={selected.fotoUrl} nome={selected.nome} size="lg" />
+          <PorteiroAvatar id={selected.id} nome={selected.nome} size="lg" />
           <div className="min-w-0">
             <p className="text-xs text-ink/50 uppercase tracking-wider">Você é</p>
             <p className="font-display font-bold text-lg truncate">{selected.nome}</p>
@@ -361,7 +361,7 @@ function PorteiroLogin({
               whileTap={{ scale: 0.97 }}
               className="group relative aspect-[3/4] rounded-xl overflow-hidden bg-gradient-to-br from-bone to-bone-dark border border-bone-dark/50 hover:border-brand hover:shadow-lg transition-all"
             >
-              <PorteiroAvatar foto={f.fotoUrl} nome={f.nome} size="card" />
+              <PorteiroAvatar id={f.id} nome={f.nome} size="card" />
               <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/50 to-transparent p-3">
                 <p className="text-white text-xs font-bold truncate">{f.nome}</p>
               </div>
@@ -378,8 +378,11 @@ function PorteiroLogin({
 // ============================================================
 
 function PorteiroAvatar({
-  foto, nome, size = 'lg',
-}: { foto: string | null; nome: string; size?: 'lg' | 'card' }) {
+  id, nome, size = 'lg',
+}: { id: string; nome: string; size?: 'lg' | 'card' }) {
+  const [broken, setBroken] = useState(false);
+  const src = `/api/v1/auth/funcionarios/${id}/foto`;
+
   const initials = nome
     .split(' ')
     .filter(Boolean)
@@ -389,25 +392,25 @@ function PorteiroAvatar({
     .toUpperCase();
 
   if (size === 'card') {
-    return foto ? (
-      <img
-        src={foto}
-        alt={nome}
-        className="absolute inset-0 w-full h-full object-cover"
-        onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-      />
-    ) : (
+    return broken ? (
       <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-brand to-brand-dark text-white text-3xl font-bold font-display">
         {initials || '?'}
       </div>
+    ) : (
+      <img
+        src={src}
+        alt={nome}
+        className="absolute inset-0 w-full h-full object-cover"
+        onError={() => setBroken(true)}
+      />
     );
   }
 
-  return foto ? (
-    <img src={foto} alt={nome} className="w-14 h-14 rounded-full object-cover ring-2 ring-white" />
-  ) : (
+  return broken ? (
     <div className="w-14 h-14 rounded-full bg-brand text-white flex items-center justify-center font-display font-bold text-lg">
       {initials || '?'}
     </div>
+  ) : (
+    <img src={src} alt={nome} className="w-14 h-14 rounded-full object-cover ring-2 ring-white" onError={() => setBroken(true)} />
   );
 }

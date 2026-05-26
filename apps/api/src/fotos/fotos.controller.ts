@@ -19,6 +19,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import type { Request, Response } from 'express';
 import { AllowMustChangePassword } from '../auth/decorators/allow-must-change-password.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { Public } from '../auth/decorators/public.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import type { RequestUser } from '../auth/types/auth.types';
 import { PrismaService } from '../prisma/prisma.service';
@@ -33,6 +34,24 @@ export class FotosController {
     private readonly prisma: PrismaService,
     private readonly storage: DriveService,
   ) {}
+
+  // ===== Foto pública do funcionário (usada na tela de login) =====
+  @Public()
+  @Get('auth/funcionarios/:id/foto')
+  async getFotoFuncionario(
+    @Param('id') id: string,
+    @Res() res: Response,
+  ): Promise<void> {
+    const f = await this.prisma.funcionario.findUnique({
+      where: { id },
+      select: { fotoUrl: true },
+    });
+    if (!f?.fotoUrl) throw new NotFoundException('Foto não encontrada');
+    const { buffer, mimeType } = await this.storage.readFile(f.fotoUrl);
+    res.setHeader('Content-Type', mimeType);
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+    res.send(buffer);
+  }
 
   // ===== Termo LGPD =====
   @Roles('morador')
