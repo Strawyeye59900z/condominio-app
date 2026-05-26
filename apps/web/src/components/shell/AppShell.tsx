@@ -47,8 +47,6 @@ const NAV: Record<string, NavItem[]> = {
   ],
   funcionario: [
     { label: 'Portaria',    href: '/porteiro',            icon: Building2 },
-    { label: 'Encomendas',  href: '/porteiro/encomendas', icon: Package },
-    { label: 'Apartamentos',href: '/porteiro/apartamentos',icon: Home },
   ],
   morador: [
     { label: 'Início',      href: '/me',             icon: Home },

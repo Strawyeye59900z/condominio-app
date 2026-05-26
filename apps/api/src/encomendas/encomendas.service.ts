@@ -7,7 +7,7 @@ import {
 import { StatusEncomenda, WhatsappStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { WhatsAppService } from '../whatsapp/whatsapp.service';
-import { DEFAULT_WHATSAPP_TEMPLATE } from '../whatsapp/whatsapp.controller';
+import { DEFAULT_WHATSAPP_TEMPLATE, WHATSAPP_TEMPLATE_KEY } from '../whatsapp/whatsapp.constants';
 import { REGRAS } from '../common/regras';
 import { CreateEncomendaDto, UpdateEncomendaDto } from './dto/encomendas.dto';
 
@@ -17,7 +17,6 @@ const TIPO_LABEL: Record<string, string> = {
   SACOLA: 'Sacola',
 };
 
-const TEMPLATE_KEY = 'WHATSAPP_TEMPLATE_ENCOMENDA';
 
 @Injectable()
 export class EncomendasService {
@@ -68,7 +67,7 @@ export class EncomendasService {
     const tipoLabel = TIPO_LABEL[dto.tipo] ?? dto.tipo;
 
     const [templateRow, porteiro] = await Promise.all([
-      this.prisma.configuracao.findUnique({ where: { chave: TEMPLATE_KEY } }),
+      this.prisma.configuracao.findUnique({ where: { chave: WHATSAPP_TEMPLATE_KEY } }),
       this.prisma.funcionario.findUnique({ where: { id: funcionarioId }, select: { nome: true } }),
     ]);
 
@@ -167,7 +166,7 @@ export class EncomendasService {
     const tipoLabel = TIPO_LABEL[encomenda.tipo] ?? encomenda.tipo;
 
     const [templateRow, porteiro] = await Promise.all([
-      this.prisma.configuracao.findUnique({ where: { chave: TEMPLATE_KEY } }),
+      this.prisma.configuracao.findUnique({ where: { chave: WHATSAPP_TEMPLATE_KEY } }),
       this.prisma.funcionario.findUnique({ where: { id: encomenda.recebidaPor }, select: { nome: true } }),
     ]);
 

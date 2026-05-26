@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { MessageSquare, Wifi, WifiOff, RefreshCw, LogOut as LogOutIcon, Loader2, Save, RotateCcw } from 'lucide-react';
+import { MessageSquare, Wifi, WifiOff, RefreshCw, LogOut as LogOutIcon, Loader2, Save, RotateCcw, Send, CheckCircle2, AlertCircle } from 'lucide-react';
 import { session, type SessionUser } from '@/lib/auth';
 import { adminApi } from '@/lib/api';
 import { AppShell } from '@/components/shell/AppShell';
@@ -36,6 +36,11 @@ export default function WhatsAppPage() {
   const [defaultTemplate, setDefaultTemplate] = useState('');
   const [savingTemplate, setSavingTemplate] = useState(false);
   const [templateSaved, setTemplateSaved] = useState(false);
+
+  // Test message state
+  const [testNumero, setTestNumero] = useState('');
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState<{ ok: boolean; error?: string } | null>(null);
 
   useEffect(() => {
     const u = session.getUser();
@@ -111,6 +116,20 @@ export default function WhatsAppPage() {
   async function handleRefreshQr() {
     if (!token) return;
     fetchQr(token);
+  }
+
+  async function handleTestMessage() {
+    if (!token || !testNumero.trim()) return;
+    setTesting(true);
+    setTestResult(null);
+    try {
+      const r = await adminApi.testWhatsApp(token, testNumero.trim());
+      setTestResult(r);
+    } catch (e: any) {
+      setTestResult({ ok: false, error: e?.message ?? 'Erro ao enviar' });
+    } finally {
+      setTesting(false);
+    }
   }
 
   async function handleSaveTemplate() {
@@ -237,6 +256,40 @@ export default function WhatsAppPage() {
             </div>
           )}
         </motion.div>
+
+        {/* Test message */}
+        {status?.connected && (
+          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: 0.08 }}
+            className="card space-y-3">
+            <div>
+              <h3 className="font-semibold text-sm text-ink">Mensagem de Teste</h3>
+              <p className="text-xs text-ink/50 mt-0.5">Verifique se o envio está funcionando</p>
+            </div>
+            <div className="flex gap-2">
+              <input
+                type="tel"
+                value={testNumero}
+                onChange={e => { setTestNumero(e.target.value); setTestResult(null); }}
+                placeholder="5511999999999 (sem +)"
+                className="input flex-1 text-sm font-mono"
+              />
+              <button onClick={handleTestMessage} disabled={testing || !testNumero.trim()}
+                className="btn-primary px-4 flex items-center gap-2 disabled:opacity-50">
+                {testing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                Testar
+              </button>
+            </div>
+            {testResult && (
+              <div className={cn('flex items-center gap-2 p-3 rounded-xl text-xs font-medium',
+                testResult.ok ? 'bg-emerald-50 border border-emerald-200 text-emerald-700'
+                  : 'bg-red-50 border border-red-200 text-red-700')}>
+                {testResult.ok
+                  ? <><CheckCircle2 className="w-4 h-4 shrink-0" /> Mensagem enviada com sucesso!</>
+                  : <><AlertCircle className="w-4 h-4 shrink-0" /> Falhou: {testResult.error}</>}
+              </div>
+            )}
+          </motion.div>
+        )}
 
         {/* Template editor */}
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: 0.1 }}

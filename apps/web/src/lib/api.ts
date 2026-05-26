@@ -217,6 +217,9 @@ export const adminApi = {
   patchWhatsAppTemplate: (token: string, template: string) =>
     api<{ template: string }>('/admin/whatsapp/template', { method: 'PATCH', token, body: { template } }),
 
+  testWhatsApp: (token: string, numero: string) =>
+    api<{ ok: boolean; error?: string }>('/admin/whatsapp/test', { method: 'POST', token, body: { numero } }),
+
   getRelatorio: (token: string, inicio: string, fim: string) =>
     api<Response>(`/admin/reservas/relatorio.pdf${qs({ inicio, fim })}`, { token, raw: true }),
 
