@@ -6,8 +6,7 @@ services:
     container_name: condominio-tailscale
     hostname: condominio-api
     restart: unless-stopped
-    # Executa em host network para que as rotas da tailnet fiquem disponíveis globalmente
-    network_mode: "host"
+    privileged: true
     environment:
       TS_AUTHKEY: ${TS_AUTHKEY}
       TS_STATE_DIR: /var/lib/tailscale
@@ -15,10 +14,8 @@ services:
       TZ: ${TZ}
     volumes:
       - ts_state:/var/lib/tailscale
-    cap_add:
-      - NET_ADMIN
-      - NET_RAW
-      - SYS_MODULE
+      - /dev/net/tun:/dev/net/tun
+    networks: [condominio_net]
 
   postgres:
     image: postgres:16-alpine
@@ -31,6 +28,9 @@ services:
       TZ: ${TZ}
     volumes:
       - pgdata:/var/lib/postgresql/data
+    # Acessível via localhost dentro dos containers que compartilham network com tailscale
+    ports:
+      - "127.0.0.1:5432:5432"
     networks: [condominio_net]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
@@ -44,6 +44,9 @@ services:
       dockerfile: apps/api/Dockerfile
     container_name: condominio-api
     restart: unless-stopped
+    # Compartilha network com tailscale para acessar tailnet (terminais Hikvision)
+    network_mode: "service:tailscale"
+    # DATABASE_URL deve apontar para localhost:5432 (porta mapeada do postgres)
     depends_on:
       postgres:
         condition: service_healthy
