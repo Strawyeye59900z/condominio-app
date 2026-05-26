@@ -111,15 +111,47 @@ export interface Reserva {
   apartamento: { id: string; numero: string };
 }
 
+export type StatusFacial = 'PENDENTE' | 'REGISTRADO_PARCIAL' | 'REGISTRADO';
+export type FacialSyncStatus = 'PENDENTE' | 'ENVIADO' | 'FALHOU' | 'REMOVENDO';
+
 export interface MoradorAdmin {
   id: string;
   nome: string;
   telefone: string;
   fotoUrl: string | null;
-  statusFacial: 'PENDENTE' | 'REGISTRADO';
+  statusFacial: StatusFacial;
   isAdminAp: boolean;
   ativo: boolean;
   apartamento: { id: string; numero: string };
+}
+
+export interface TerminalFacial {
+  id: string;
+  nome: string;
+  host: string;
+  porta: number;
+  usuario: string;
+  ativo: boolean;
+  ultimoOk: string | null;
+  ultimoErr: string | null;
+  createdAt: string;
+}
+
+export interface FacialSyncStatus_ {
+  terminalId: string;
+  terminalNome: string;
+  terminalHost: string;
+  status: FacialSyncStatus;
+  tentativas: number;
+  ultimoErro: string | null;
+  atualizadoEm: string;
+}
+
+export interface FacialSyncInfo {
+  moradorId: string;
+  nome: string;
+  statusFacial: StatusFacial;
+  terminais: FacialSyncStatus_[];
 }
 
 export interface AdminUser {
@@ -244,6 +276,26 @@ export const adminApi = {
 
   patchEncomendaAdmin: (token: string, id: string, body: { tipo?: string }) =>
     api<Encomenda>(`/admin/encomendas/${id}`, { method: 'PATCH', token, body }),
+
+  // Terminais Faciais
+  getTerminais: (token: string) =>
+    api<TerminalFacial[]>('/admin/terminais', { token }),
+
+  createTerminal: (token: string, body: { nome: string; host: string; porta?: number; usuario: string; senha: string }) =>
+    api<TerminalFacial>('/admin/terminais', { method: 'POST', token, body }),
+
+  patchTerminal: (token: string, id: string, body: { nome?: string; host?: string; porta?: number; usuario?: string; senha?: string; ativo?: boolean }) =>
+    api<TerminalFacial>(`/admin/terminais/${id}`, { method: 'PATCH', token, body }),
+
+  testarTerminal: (token: string, id: string) =>
+    api<{ ok: boolean; erro?: string }>(`/admin/terminais/${id}/testar`, { method: 'POST', token }),
+
+  // Facial sync
+  getFacialSyncStatus: (token: string, moradorId: string) =>
+    api<FacialSyncInfo>(`/admin/facial-queue/${moradorId}/sync-status`, { token }),
+
+  reenviarFacial: (token: string, moradorId: string) =>
+    api<{ message: string }>(`/admin/facial-queue/${moradorId}/reenviar`, { method: 'POST', token }),
 };
 
 // ===== Porteiro API =====
@@ -278,7 +330,7 @@ export interface MoradorDoAp {
   nome: string;
   telefone: string;
   fotoUrl: string | null;
-  statusFacial: 'PENDENTE' | 'REGISTRADO';
+  statusFacial: StatusFacial;
   isAdminAp: boolean;
 }
 

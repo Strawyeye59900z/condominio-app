@@ -70,6 +70,7 @@ model Morador {
   encomendas        Encomenda[] @relation("MoradorDestinatario")
   encomendasBaixaPor Encomenda[] @relation("MoradorBaixa")
   reservas          Reserva[]
+  facialSyncs       FacialSync[]
 
   @@index([statusFacial, createdAt])
   @@index([apartamentoId])
@@ -78,7 +79,52 @@ model Morador {
 
 enum StatusFacial {
   PENDENTE
+  REGISTRADO_PARCIAL
   REGISTRADO
+}
+
+// ============================================================
+// TERMINAIS FACIAIS (Hikvision K1T342MWX via ISAPI)
+// ============================================================
+
+model TerminalFacial {
+  id        String    @id @default(cuid())
+  nome      String
+  host      String
+  porta     Int       @default(80)
+  usuario   String    @default("admin")
+  senhaEnc  String    @map("senha_enc")
+  ativo     Boolean   @default(true)
+  ultimoOk  DateTime? @map("ultimo_ok")
+  ultimoErr String?   @map("ultimo_err")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  syncs FacialSync[]
+
+  @@map("terminais_faciais")
+}
+
+model FacialSync {
+  id           String          @id @default(cuid())
+  moradorId    String          @map("morador_id")
+  morador      Morador         @relation(fields: [moradorId], references: [id], onDelete: Cascade)
+  terminalId   String          @map("terminal_id")
+  terminal     TerminalFacial  @relation(fields: [terminalId], references: [id], onDelete: Cascade)
+  status       FacialSyncStatus @default(PENDENTE)
+  tentativas   Int             @default(0)
+  ultimoErro   String?         @map("ultimo_erro")
+  atualizadoEm DateTime        @updatedAt @map("atualizado_em")
+
+  @@unique([moradorId, terminalId])
+  @@index([status])
+  @@map("facial_syncs")
+}
+
+enum FacialSyncStatus {
+  PENDENTE
+  ENVIADO
+  FALHOU
+  REMOVENDO
 }
 
 // ============================================================

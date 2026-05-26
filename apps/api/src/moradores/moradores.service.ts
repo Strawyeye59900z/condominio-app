@@ -6,6 +6,7 @@ import {
 import * as bcrypt from 'bcryptjs';
 import { Prisma, StatusFacial } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { FacialSyncService } from '../facial/facial-sync.service';
 import {
   AdminUpdateMoradorDto,
   CreateMoradorDto,
@@ -14,7 +15,10 @@ import {
 
 @Injectable()
 export class MoradoresService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly facialSync: FacialSyncService,
+  ) {}
 
   // ===== Helpers =====
   async getAdminDoAp(apartamentoId: string) {
@@ -164,10 +168,17 @@ export class MoradoresService {
       data.fotoUrl = null;
       data.statusFacial = StatusFacial.PENDENTE;
     }
-    return this.prisma.morador.update({
+    const updated = await this.prisma.morador.update({
       where: { id: moradorId },
       data,
       select: { id: true, ativo: true, statusFacial: true, fotoUrl: true },
     });
+
+    // Enfileira remoção do terminal se morador desativado ou foto resetada
+    if (dto.ativo === false || dto.resetFoto) {
+      this.facialSync.enfileirarRemocao(moradorId).catch(() => {});
+    }
+
+    return updated;
   }
 }

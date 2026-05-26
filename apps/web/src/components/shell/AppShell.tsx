@@ -22,6 +22,7 @@ import {
   Bell,
   MessageSquare,
   Shield,
+  Wifi,
 } from 'lucide-react';
 import { session, type SessionUser } from '@/lib/auth';
 import { authApi } from '@/lib/api';
@@ -43,6 +44,7 @@ const NAV: Record<string, NavItem[]> = {
     { label: 'Encomendas',  href: '/admin/encomendas',   icon: Package },
     { label: 'Reservas',    href: '/admin/reservas',     icon: Calendar },
     { label: 'Fila Facial', href: '/admin/facial',       icon: Camera },
+    { label: 'Terminais',   href: '/admin/terminais',    icon: Wifi },
     { label: 'Relatórios',  href: '/admin/relatorios',   icon: FileText },
     { label: 'WhatsApp',    href: '/admin/whatsapp',     icon: MessageSquare },
     { label: 'Admins',      href: '/admin/admins',       icon: Shield },

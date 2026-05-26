@@ -14,6 +14,7 @@ import { MoradoresModule } from './moradores/moradores.module';
 import { DriveModule } from './drive/drive.module';
 import { FotosModule } from './fotos/fotos.module';
 import { FacialModule } from './facial/facial.module';
+import { TerminaisModule } from './terminais/terminais.module';
 import { EncomendasModule } from './encomendas/encomendas.module';
 import { WhatsAppModule } from './whatsapp/whatsapp.module';
 import { ReservasModule } from './reservas/reservas.module';
@@ -56,6 +57,7 @@ import { AuditInterceptor } from './common/interceptors/audit.interceptor';
     MoradoresModule,
     FotosModule,
     FacialModule,
+    TerminaisModule,
     WhatsAppModule,
     EncomendasModule,
     ReservasModule,

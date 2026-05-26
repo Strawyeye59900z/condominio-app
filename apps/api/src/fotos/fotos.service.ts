@@ -9,6 +9,7 @@ import {
 import { StatusFacial } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { DriveService } from '../drive/drive.service';
+import { FacialSyncService } from '../facial/facial-sync.service';
 import { REGRAS } from '../common/regras';
 
 const ALLOWED_MIME = new Set(['image/jpeg', 'image/png', 'image/webp']);
@@ -18,6 +19,7 @@ export class FotosService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly storage: DriveService,
+    private readonly facialSync: FacialSyncService,
   ) {}
 
   // ===== Upload de foto do morador =====
@@ -56,16 +58,12 @@ export class FotosService {
 
     const updated = await this.prisma.morador.update({
       where: { id: morador.id },
-      data: {
-        fotoUrl: relativePath,
-        // statusFacial permanece PENDENTE; vira REGISTRADO só pelo síndico
-      },
-      select: {
-        id: true,
-        fotoUrl: true,
-        statusFacial: true,
-      },
+      data: { fotoUrl: relativePath, statusFacial: StatusFacial.PENDENTE },
+      select: { id: true, fotoUrl: true, statusFacial: true },
     });
+
+    // Enfileira envio automático para os terminais Hikvision (não bloqueia)
+    this.facialSync.enfileirar(morador.id).catch(() => {});
 
     return updated;
   }
