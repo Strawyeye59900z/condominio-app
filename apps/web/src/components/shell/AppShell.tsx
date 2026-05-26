@@ -46,6 +46,7 @@ const NAV: Record<string, NavItem[]> = {
     { label: 'Relatórios',  href: '/admin/relatorios',   icon: FileText },
     { label: 'WhatsApp',    href: '/admin/whatsapp',     icon: MessageSquare },
     { label: 'Admins',      href: '/admin/admins',       icon: Shield },
+    { label: 'Meu Perfil',  href: '/admin/perfil',       icon: User },
   ],
   funcionario: [
     { label: 'Portaria',    href: '/porteiro',            icon: Building2 },
