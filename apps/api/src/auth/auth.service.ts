@@ -30,6 +30,7 @@ export interface AuthSession extends AuthTokens {
     email?: string;
     numero?: string;
     apartamentoId?: string;
+    fotoUrl?: string;
     mustChangePassword: boolean;
   };
 }
@@ -79,7 +80,7 @@ export class AuthService {
       id: f.id,
       role: 'funcionario',
       mustChangePassword: f.mustChangePassword,
-      extra: { nome: f.nome },
+      extra: { nome: f.nome, fotoUrl: f.fotoUrl ?? undefined },
     });
   }
 

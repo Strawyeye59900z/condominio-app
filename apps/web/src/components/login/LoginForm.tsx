@@ -73,6 +73,8 @@ export function LoginForm() {
 
         if (resp.user.mustChangePassword) {
           router.push('/auth/change-password');
+        } else if (resp.user.role === 'funcionario' && !resp.user.fotoUrl) {
+          router.push('/porteiro/foto');
         } else {
           router.push(session.getHomePath(resp.user));
         }

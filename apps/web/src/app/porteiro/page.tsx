@@ -356,6 +356,7 @@ export default function PorteiroDashboard() {
     const u = session.getUser();
     const t = session.getToken();
     if (!u || u.role !== 'funcionario') { router.push('/'); return; }
+    if (!u.fotoUrl) { router.push('/porteiro/foto'); return; }
     setUser(u);
     setToken(t);
   }, [router]);

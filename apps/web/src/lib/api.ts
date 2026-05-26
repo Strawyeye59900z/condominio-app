@@ -75,6 +75,7 @@ export interface LoginResponse {
     nome?: string;
     numero?: string;
     apartamentoId?: string;
+    fotoUrl?: string;
     mustChangePassword?: boolean;
   };
 }
@@ -262,6 +263,12 @@ export const porteiroApi = {
 
   reenviarWhatsapp: (token: string, id: string) =>
     api<{ ok: boolean }>(`/porteiro/encomendas/${id}/reenviar-whatsapp`, { method: 'POST', token }),
+
+  uploadFoto: (token: string, file: File) => {
+    const form = new FormData();
+    form.append('foto', file);
+    return api<{ id: string; fotoUrl: string }>('/porteiro/me/foto', { method: 'POST', token, body: form });
+  },
 };
 
 // ===== Tipos extras para /me =====
