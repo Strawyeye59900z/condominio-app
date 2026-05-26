@@ -107,6 +107,7 @@ export default function EncomendasAdminPage() {
                     <th className="text-left px-4 py-3 text-xs font-semibold text-ink/50 uppercase tracking-wide">Morador</th>
                     <th className="text-left px-4 py-3 text-xs font-semibold text-ink/50 uppercase tracking-wide">Tipo</th>
                     <th className="text-left px-4 py-3 text-xs font-semibold text-ink/50 uppercase tracking-wide hidden sm:table-cell">Recebida</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-ink/50 uppercase tracking-wide hidden lg:table-cell">Porteiro</th>
                     <th className="text-left px-4 py-3 text-xs font-semibold text-ink/50 uppercase tracking-wide">Status</th>
                     <th className="text-left px-4 py-3 text-xs font-semibold text-ink/50 uppercase tracking-wide hidden md:table-cell">WhatsApp</th>
                     <th className="text-right px-4 py-3 text-xs font-semibold text-ink/50 uppercase tracking-wide">Ações</th>
@@ -130,6 +131,7 @@ export default function EncomendasAdminPage() {
                         )}
                       </td>
                       <td className="px-4 py-3 text-ink/50 hidden sm:table-cell">{ptDateTime(enc.recebidaEm)}</td>
+                      <td className="px-4 py-3 text-ink/60 hidden lg:table-cell text-xs">{enc.funcionario?.nome ?? '—'}</td>
                       <td className="px-4 py-3">
                         <span className={cn('text-[11px] font-semibold px-2 py-0.5 rounded-full',
                           enc.status === 'PENDENTE' ? 'bg-amber-50 text-amber-600' :

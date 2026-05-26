@@ -13,6 +13,7 @@ import {
   Clock,
   AlertCircle,
   X,
+  Send,
 } from 'lucide-react';
 import { session, type SessionUser } from '@/lib/auth';
 import {
@@ -260,6 +261,7 @@ export default function PorteiroDashboard() {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [justRegistered, setJustRegistered] = useState<Encomenda | null>(null);
+  const [resending, setResending] = useState<string | null>(null);
 
   useEffect(() => {
     const u = session.getUser();
@@ -280,6 +282,21 @@ export default function PorteiroDashboard() {
       setLoading(false);
     });
   }, [token]);
+
+  async function handleReenviarWhatsapp(encId: string) {
+    if (!token || resending) return;
+    setResending(encId);
+    try {
+      await porteiroApi.reenviarWhatsapp(token, encId);
+      setEncomendas(prev =>
+        (prev ?? []).map(e =>
+          e.id === encId ? { ...e, whatsappStatus: 'PENDENTE' } : e,
+        ),
+      );
+    } finally {
+      setResending(null);
+    }
+  }
 
   function handleNewEncomenda(enc: Encomenda) {
     setEncomendas(prev => [enc, ...(prev ?? [])]);
@@ -421,6 +438,18 @@ export default function PorteiroDashboard() {
                       )}>
                         {enc.whatsappStatus === 'ENVIADA' ? '✓ Notif.' : enc.whatsappStatus === 'FALHOU' ? '✗ Falhou' : '⏳'}
                       </span>
+                      {enc.whatsappStatus === 'FALHOU' && (
+                        <button
+                          onClick={() => handleReenviarWhatsapp(enc.id)}
+                          disabled={resending === enc.id}
+                          className="flex items-center gap-1 text-[10px] font-semibold text-brand hover:underline disabled:opacity-50"
+                        >
+                          {resending === enc.id
+                            ? <Loader2 className="w-2.5 h-2.5 animate-spin" />
+                            : <Send className="w-2.5 h-2.5" />}
+                          Reenviar
+                        </button>
+                      )}
                       {editable && (
                         <span className="text-[10px] text-ink/40">editável</span>
                       )}

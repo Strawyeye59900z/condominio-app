@@ -96,6 +96,7 @@ export interface Encomenda {
   whatsappStatus: 'PENDENTE' | 'ENVIADA' | 'FALHOU';
   apartamento: { id: string; numero: string };
   morador: { id: string; nome: string };
+  funcionario?: { nome: string };
 }
 
 export interface Reserva {
@@ -231,6 +232,9 @@ export const porteiroApi = {
 
   getApartamentos: (token: string) =>
     api<ApartamentoLookup[]>('/porteiro/apartamentos', { token }),
+
+  reenviarWhatsapp: (token: string, id: string) =>
+    api<{ ok: boolean }>(`/porteiro/encomendas/${id}/reenviar-whatsapp`, { method: 'POST', token }),
 };
 
 // ===== Tipos extras para /me =====

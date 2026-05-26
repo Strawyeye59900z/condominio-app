@@ -134,6 +134,53 @@ export class EncomendasService {
     });
   }
 
+  // ===== Porteiro: reenviar WhatsApp =====
+  async reenviarWhatsapp(id: string) {
+    const encomenda = await this.prisma.encomenda.findUnique({
+      where: { id },
+      include: {
+        morador: { select: { nome: true, telefone: true } },
+        apartamento: { select: { numero: true } },
+      },
+    });
+    if (!encomenda) throw new NotFoundException('Encomenda não encontrada');
+
+    const hora = encomenda.recebidaEm.toLocaleTimeString('pt-BR', {
+      hour: '2-digit',
+      minute: '2-digit',
+      timeZone: 'America/Sao_Paulo',
+    });
+    const tipoLabel = TIPO_LABEL[encomenda.tipo] ?? encomenda.tipo;
+    const texto =
+      `Olá, ${encomenda.morador.nome}! 📦\n` +
+      `Uma encomenda do tipo *${tipoLabel}* foi recebida na portaria às ${hora}.\n` +
+      `Dirija-se à portaria para retirar. ✅`;
+
+    const numero = encomenda.morador.telefone.replace(/\D/g, '');
+
+    await this.prisma.encomenda.update({
+      where: { id },
+      data: { whatsappStatus: WhatsappStatus.PENDENTE, whatsappError: null },
+    });
+
+    this.whatsapp.sendAsync(numero, texto, {
+      onSuccess: async () => {
+        await this.prisma.encomenda.update({
+          where: { id },
+          data: { whatsappStatus: WhatsappStatus.ENVIADA },
+        });
+      },
+      onFailure: async (error) => {
+        await this.prisma.encomenda.update({
+          where: { id },
+          data: { whatsappStatus: WhatsappStatus.FALHOU, whatsappError: error },
+        });
+      },
+    });
+
+    return { ok: true };
+  }
+
   // ===== Porteiro: listar encomendas =====
   listPorteiro(status?: string) {
     const where =
@@ -152,6 +199,7 @@ export class EncomendasService {
       include: {
         morador: { select: { nome: true, telefone: true } },
         apartamento: { select: { numero: true } },
+        funcionario: { select: { nome: true } },
       },
     });
   }
@@ -192,6 +240,7 @@ export class EncomendasService {
         editavelAte: true,
         whatsappStatus: true,
         morador: { select: { id: true, nome: true } },
+        funcionario: { select: { nome: true } },
       },
     });
   }

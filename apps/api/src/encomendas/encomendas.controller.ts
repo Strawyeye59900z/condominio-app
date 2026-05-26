@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  HttpCode,
   Param,
   Patch,
   Post,
@@ -41,6 +42,12 @@ export class EncomendasPorteiroController {
   @Get('apartamentos')
   apartamentos() {
     return this.svc.listApartamentos();
+  }
+
+  @Post('encomendas/:id/reenviar-whatsapp')
+  @HttpCode(200)
+  reenviarWhatsapp(@Param('id') id: string) {
+    return this.svc.reenviarWhatsapp(id);
   }
 }
 

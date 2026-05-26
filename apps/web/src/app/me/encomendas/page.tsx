@@ -313,6 +313,7 @@ export default function EncomendasPage() {
                     <p className="text-sm font-medium text-ink">{TIPO_LABEL[enc.tipo]}</p>
                     <p className="text-xs text-ink/50">
                       Recebida {ptDateTime(enc.recebidaEm)}
+                      {enc.funcionario && ` · ${enc.funcionario.nome.split(' ')[0]}`}
                     </p>
                     {enc.retiradaEm && (
                       <p className="text-xs text-emerald-600">
