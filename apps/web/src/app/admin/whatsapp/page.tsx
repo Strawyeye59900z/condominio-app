@@ -20,6 +20,7 @@ export default function WhatsAppPage() {
   const [loadingQr, setLoadingQr] = useState(false);
   const [loadingStatus, setLoadingStatus] = useState(true);
   const [disconnecting, setDisconnecting] = useState(false);
+  const [qrError, setQrError] = useState<string | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
@@ -39,9 +40,17 @@ export default function WhatsAppPage() {
 
   async function fetchQr(t: string) {
     setLoadingQr(true);
-    const r = await adminApi.getWhatsAppQrCode(t).catch(() => null);
-    setQrDataUrl(r?.qrDataUrl ?? null);
-    setLoadingQr(false);
+    setQrError(null);
+    try {
+      const r = await adminApi.getWhatsAppQrCode(t);
+      setQrDataUrl(r?.qrDataUrl ?? null);
+      if (!r?.qrDataUrl) setQrError('Nenhum QR retornado pela API');
+    } catch (err: any) {
+      setQrDataUrl(null);
+      setQrError(err?.message ?? 'Erro ao buscar QR code');
+    } finally {
+      setLoadingQr(false);
+    }
   }
 
   useEffect(() => {
@@ -162,11 +171,14 @@ export default function WhatsAppPage() {
                     className="w-60 h-60 rounded-xl border border-bone-dark/40"
                   />
                 ) : (
-                  <div className="w-60 h-60 bg-bone rounded-xl flex items-center justify-center text-center px-4">
+                  <div className="w-60 min-h-40 bg-bone rounded-xl flex items-center justify-center text-center px-4 py-6">
                     <div>
                       <MessageSquare className="w-8 h-8 text-ink/30 mx-auto mb-2" />
                       <p className="text-xs text-ink/50">Não foi possível gerar o QR code</p>
-                      <button onClick={handleRefreshQr} className="text-xs text-brand hover:underline mt-1">
+                      {qrError && (
+                        <p className="text-[10px] text-red-500 mt-1 max-w-[180px]">{qrError}</p>
+                      )}
+                      <button onClick={handleRefreshQr} className="text-xs text-brand hover:underline mt-2">
                         Tentar novamente
                       </button>
                     </div>

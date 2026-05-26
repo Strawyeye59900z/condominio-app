@@ -48,33 +48,130 @@ export class WhatsAppService {
         `${this.baseUrl}/instance/connectionState/${this.instance}`,
         { headers: { apikey: this.apiKey } },
       );
-      if (!res.ok) return { connected: false, state: 'http_error', instance: this.instance };
-      const data = (await res.json()) as { instance?: { state?: string } };
-      const state = data?.instance?.state ?? 'unknown';
+      if (!res.ok) {
+        this.logger.warn(`status: HTTP ${res.status}`);
+        return { connected: false, state: `http_${res.status}`, instance: this.instance };
+      }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const data = (await res.json()) as any;
+      // v2: { instance: { instanceName, state } }
+      // v1: { instance: { state } }
+      const state: string = data?.instance?.state ?? data?.state ?? 'unknown';
+      this.logger.debug(`status: state=${state}`);
       return { connected: state === 'open', state, instance: this.instance };
     } catch (e) {
       return { connected: false, state: String(e), instance: this.instance };
     }
   }
 
+  /** Verifica se a instância já existe no Evolution. */
+  private async instanceExists(): Promise<boolean> {
+    try {
+      const res = await fetch(`${this.baseUrl}/instance/fetchInstances`, {
+        headers: { apikey: this.apiKey },
+      });
+      if (!res.ok) return false;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const data = (await res.json()) as any;
+      // v2 retorna array de instâncias
+      const list: any[] = Array.isArray(data) ? data : (data?.instances ?? []);
+      return list.some(
+        (i: any) =>
+          i?.instance?.instanceName === this.instance ||
+          i?.instanceName === this.instance ||
+          i?.name === this.instance,
+      );
+    } catch {
+      return false;
+    }
+  }
+
+  /** Cria a instância se não existir e retorna o QR code da criação (se disponível). */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private async createInstanceIfNeeded(): Promise<any | null> {
+    const exists = await this.instanceExists();
+    if (exists) return null; // já existe, não precisa criar
+
+    this.logger.log(`Instância "${this.instance}" não existe — criando no Evolution...`);
+    try {
+      const res = await fetch(`${this.baseUrl}/instance/create`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          apikey: this.apiKey,
+        },
+        body: JSON.stringify({
+          instanceName: this.instance,
+          qrcode: true,
+          integration: 'WHATSAPP-BAILEYS',
+        }),
+      });
+      const rawBody = await res.text();
+      this.logger.debug(`createInstance HTTP ${res.status}: ${rawBody.slice(0, 300)}`);
+      if (!res.ok) {
+        this.logger.warn(`createInstance falhou: ${rawBody.slice(0, 200)}`);
+        return null;
+      }
+      return JSON.parse(rawBody);
+    } catch (e) {
+      this.logger.error(`createInstance erro: ${String(e)}`);
+      return null;
+    }
+  }
+
+  /** Extrai QR code (base64 ou code string) de uma resposta da Evolution. */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private async extractQr(data: any): Promise<string | null> {
+    const base64: string | undefined = data?.qrcode?.base64 ?? data?.base64;
+    const code: string | undefined = data?.qrcode?.code ?? data?.code;
+    if (base64) {
+      return base64.startsWith('data:') ? base64 : `data:image/png;base64,${base64}`;
+    }
+    if (code) {
+      return QRCode.toDataURL(code, { width: 300, margin: 2 });
+    }
+    return null;
+  }
+
   /** Retorna QR code como data URL PNG para conexão da instância. */
   async getQrCode(): Promise<{ qrDataUrl: string } | null> {
     try {
-      const res = await fetch(
-        `${this.baseUrl}/instance/connect/${this.instance}`,
-        { headers: { apikey: this.apiKey } },
-      );
-      if (!res.ok) return null;
-      const data = (await res.json()) as { code?: string; base64?: string };
-      // Algumas versões da Evolution retornam base64 diretamente
-      if (data.base64) return { qrDataUrl: data.base64 };
-      if (data.code) {
-        const qrDataUrl = await QRCode.toDataURL(data.code, { width: 300, margin: 2 });
-        return { qrDataUrl };
+      // 1. Garante que a instância existe (cria se necessário)
+      const createResponse = await this.createInstanceIfNeeded();
+      if (createResponse) {
+        // A criação pode já retornar o QR code
+        const qrFromCreate = await this.extractQr(createResponse);
+        if (qrFromCreate) {
+          this.logger.log('QR code obtido na criação da instância');
+          return { qrDataUrl: qrFromCreate };
+        }
       }
-      return null;
+
+      // 2. Tenta obter o QR code via connect
+      const url = `${this.baseUrl}/instance/connect/${this.instance}`;
+      const res = await fetch(url, { headers: { apikey: this.apiKey } });
+
+      let rawBody = '';
+      try { rawBody = await res.text(); } catch { rawBody = '<unreadable>'; }
+      this.logger.debug(`getQrCode HTTP ${res.status}: ${rawBody.slice(0, 300)}`);
+
+      if (!res.ok) {
+        this.logger.warn(`getQrCode connect falhou: HTTP ${res.status} → ${rawBody.slice(0, 200)}`);
+        return null;
+      }
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let data: any;
+      try { data = JSON.parse(rawBody); } catch { return null; }
+
+      const qrDataUrl = await this.extractQr(data);
+      if (!qrDataUrl) {
+        this.logger.warn(`getQrCode: resposta sem base64 ou code: ${rawBody.slice(0, 200)}`);
+      }
+      return qrDataUrl ? { qrDataUrl } : null;
+
     } catch (e) {
-      this.logger.error(`getQrCode falhou: ${(e as Error).message}`);
+      this.logger.error(`getQrCode erro inesperado: ${String(e)}`);
       return null;
     }
   }
