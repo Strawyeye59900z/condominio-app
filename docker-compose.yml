@@ -6,6 +6,8 @@ services:
     container_name: condominio-tailscale
     hostname: condominio-api
     restart: unless-stopped
+    # Executa em host network para que as rotas da tailnet fiquem disponíveis globalmente
+    network_mode: "host"
     environment:
       TS_AUTHKEY: ${TS_AUTHKEY}
       TS_STATE_DIR: /var/lib/tailscale
@@ -16,7 +18,7 @@ services:
     cap_add:
       - NET_ADMIN
       - NET_RAW
-    networks: [condominio_net]
+      - SYS_MODULE
 
   postgres:
     image: postgres:16-alpine
@@ -42,8 +44,6 @@ services:
       dockerfile: apps/api/Dockerfile
     container_name: condominio-api
     restart: unless-stopped
-    # Usa host network para alcançar IPs da tailnet via sidecar Tailscale
-    network_mode: "host"
     depends_on:
       postgres:
         condition: service_healthy
@@ -77,8 +77,8 @@ services:
       context: .
       dockerfile: apps/web/Dockerfile
       args:
-        # API roda em host network → acessar via localhost
-        API_INTERNAL_URL: http://localhost:${API_PORT}
+        # API roda na rede bridge → acessar pelo container name
+        API_INTERNAL_URL: http://condominio-api:${API_PORT}
     container_name: condominio-web
     restart: unless-stopped
     depends_on:
@@ -86,7 +86,7 @@ services:
         condition: service_healthy
     environment:
       NODE_ENV: production
-      API_INTERNAL_URL: http://localhost:${API_PORT}
+      API_INTERNAL_URL: http://condominio-api:${API_PORT}
       NEXT_PUBLIC_APP_URL: ${APP_URL}
       TZ: ${TZ}
     ports:
