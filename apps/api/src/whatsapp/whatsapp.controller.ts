@@ -87,13 +87,6 @@ export class WhatsAppAdminController {
       throw new ServiceUnavailableException('WhatsApp não está conectado. Escaneie o QR code primeiro.');
     }
     const numero = dto.numero.replace(/\D/g, '');
-    return new Promise<{ ok: boolean; error?: string }>((resolve) => {
-      this.svc.sendAsync(numero, '✅ Teste de conexão — Condomínio App funcionando!', {
-        onSuccess: async () => resolve({ ok: true }),
-        onFailure: async (error) => resolve({ ok: false, error }),
-      });
-      // timeout de segurança (10s)
-      setTimeout(() => resolve({ ok: false, error: 'Timeout: sem resposta em 10s' }), 10_000);
-    });
+    return this.svc.testSend(numero, '✅ Teste de conexão — Condomínio App funcionando!');
   }
 }

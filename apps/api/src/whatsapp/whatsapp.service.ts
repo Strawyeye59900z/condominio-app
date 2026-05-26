@@ -175,20 +175,36 @@ export class WhatsAppService implements OnModuleInit {
     }
   }
 
+  /** Usado pelo endpoint de teste — sem retry, resultado imediato. */
+  async testSend(to: string, text: string): Promise<WhatsAppSendResult> {
+    return this.trySend(to, text);
+  }
+
   private async trySend(to: string, text: string): Promise<WhatsAppSendResult> {
     try {
       if (!this.sock) {
         return { ok: false, error: 'Socket não inicializado' };
       }
-
       if (!this.connected) {
         return { ok: false, error: 'Não conectado ao WhatsApp' };
       }
 
-      // Formatar número WhatsApp
-      const jid = to.includes('@') ? to : `${to}@s.whatsapp.net`;
+      // Verifica se o número existe no WhatsApp e obtém o JID correto
+      let jid = `${to}@s.whatsapp.net`;
+      try {
+        const checks = await this.sock.onWhatsApp(to);
+        const check = Array.isArray(checks) ? checks[0] : undefined;
+        if (check !== undefined && !check?.exists) {
+          return { ok: false, error: `Número ${to} não está registrado no WhatsApp` };
+        }
+        if (check?.jid) jid = check.jid;
+      } catch (e) {
+        // onWhatsApp indisponível nesta versão — tenta enviar mesmo assim
+        this.logger.warn(`onWhatsApp check falhou: ${(e as Error).message}`);
+      }
 
-      await this.sock.sendMessage(jid, { text });
+      const result = await this.sock.sendMessage(jid, { text });
+      this.logger.log(`Mensagem enviada para ${jid} — status: ${result?.status}`);
       return { ok: true };
     } catch (e) {
       return { ok: false, error: (e as Error).message };
