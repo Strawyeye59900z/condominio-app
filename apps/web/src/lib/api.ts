@@ -121,6 +121,12 @@ export interface MoradorAdmin {
   apartamento: { id: string; numero: string };
 }
 
+export interface AdminUser {
+  id: string;
+  email: string;
+  createdAt: string;
+}
+
 export interface FuncionarioAdmin {
   id: string;
   loginId: string;
@@ -174,6 +180,18 @@ export const adminApi = {
 
   patchMorador: (token: string, id: string, body: { ativo?: boolean; resetFoto?: boolean }) =>
     api<MoradorAdmin>(`/admin/moradores/${id}`, { method: 'PATCH', token, body }),
+
+  resetSenhaMorador: (token: string, id: string) =>
+    api<{ novaSenha: string }>(`/admin/moradores/${id}/reset-senha`, { method: 'POST', token }),
+
+  listAdmins: (token: string) =>
+    api<AdminUser[]>('/auth/admins', { token }),
+
+  createAdmin: (token: string, email: string, senha: string) =>
+    api<AdminUser>('/auth/admins', { method: 'POST', token, body: { email, senha } }),
+
+  deleteAdmin: (token: string, id: string) =>
+    api<void>(`/auth/admins/${id}`, { method: 'DELETE', token }),
 
   getFuncionarios: (token: string) =>
     api<FuncionarioAdmin[]>('/admin/funcionarios', { token }),

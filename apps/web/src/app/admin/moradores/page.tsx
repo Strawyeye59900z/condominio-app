@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import {
-  Users, Search, RefreshCw, UserCheck, UserX, Camera, Loader2, X
+  Users, Search, RefreshCw, UserCheck, UserX, Camera, Loader2, X, KeyRound, Copy, CheckCircle2
 } from 'lucide-react';
 import { session, type SessionUser } from '@/lib/auth';
 import { adminApi, type MoradorAdmin } from '@/lib/api';
@@ -25,6 +25,8 @@ export default function MoradoresPage() {
   const [facialFilter, setFacialFilter] = useState<FacialFilter>('todos');
   const [confirming, setConfirming] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [senhaGerada, setSenhaGerada] = useState<{ moradorNome: string; apNumero: string; senha: string } | null>(null);
+  const [copiado, setCopiado] = useState(false);
 
   useEffect(() => {
     const u = session.getUser();
@@ -75,10 +77,58 @@ export default function MoradoresPage() {
     setConfirming(null);
   }
 
+  async function resetSenha(m: MoradorAdmin) {
+    if (!token) return;
+    setActionLoading(m.id);
+    try {
+      const r = await adminApi.resetSenhaMorador(token, m.id);
+      setSenhaGerada({ moradorNome: m.nome, apNumero: m.apartamento.numero, senha: r.novaSenha });
+    } catch (err: any) {
+      alert(err?.message ?? 'Erro ao resetar senha');
+    } finally {
+      setActionLoading(null);
+      setConfirming(null);
+    }
+  }
+
+  function copiarSenha(senha: string) {
+    navigator.clipboard.writeText(senha).then(() => {
+      setCopiado(true);
+      setTimeout(() => setCopiado(false), 2000);
+    });
+  }
+
   if (!user) return null;
 
   return (
     <AppShell user={user} title="Moradores">
+      {/* Modal senha gerada */}
+      {senhaGerada && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="font-display font-bold text-lg text-ink">Senha Resetada</h3>
+              <button onClick={() => setSenhaGerada(null)} className="p-1 rounded-lg hover:bg-bone text-ink/40">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <p className="text-sm text-ink/60">
+              A senha provisória do AP <strong>{senhaGerada.apNumero}</strong> foi redefinida.
+              Informe ao morador <strong>{senhaGerada.moradorNome}</strong>:
+            </p>
+            <div className="flex items-center gap-2 bg-bone rounded-xl px-4 py-3">
+              <span className="font-mono font-bold text-xl text-ink flex-1">{senhaGerada.senha}</span>
+              <button onClick={() => copiarSenha(senhaGerada.senha)}
+                className="p-1.5 rounded-lg hover:bg-bone-dark/40 text-ink/50 hover:text-ink transition-colors">
+                {copiado ? <CheckCircle2 className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
+              </button>
+            </div>
+            <p className="text-xs text-ink/40">O morador será solicitado a criar uma nova senha no próximo login.</p>
+            <button onClick={() => setSenhaGerada(null)} className="btn-primary w-full py-2 text-sm">Fechar</button>
+          </div>
+        </div>
+      )}
+
       <div className="p-6 max-w-6xl mx-auto space-y-6">
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
           <h2 className="font-display font-extrabold text-2xl text-ink">Moradores</h2>
@@ -183,8 +233,18 @@ export default function MoradoresPage() {
                               <button onClick={() => toggleAtivo(m)} className="text-xs text-brand font-medium hover:underline">Sim</button>
                               <button onClick={() => setConfirming(null)} className="text-xs text-ink/40 hover:underline">Não</button>
                             </div>
+                          ) : confirming === m.id + '_senha' ? (
+                            <div className="flex items-center gap-1">
+                              <span className="text-xs text-ink/50">Resetar senha do AP?</span>
+                              <button onClick={() => resetSenha(m)} className="text-xs text-red-600 font-medium hover:underline">Sim</button>
+                              <button onClick={() => setConfirming(null)} className="text-xs text-ink/40 hover:underline">Não</button>
+                            </div>
                           ) : (
                             <>
+                              <button onClick={() => setConfirming(m.id + '_senha')} title="Resetar senha do AP"
+                                className="p-1.5 rounded-lg text-ink/40 hover:text-purple-600 hover:bg-purple-50 transition-colors">
+                                <KeyRound className="w-3.5 h-3.5" />
+                              </button>
                               {m.fotoUrl && (
                                 <button onClick={() => setConfirming(m.id + '_foto')} title="Resetar foto"
                                   className="p-1.5 rounded-lg text-ink/40 hover:text-amber-600 hover:bg-amber-50 transition-colors">

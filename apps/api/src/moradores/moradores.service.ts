@@ -3,6 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import * as bcrypt from 'bcryptjs';
 import { Prisma, StatusFacial } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import {
@@ -135,6 +136,22 @@ export class MoradoresService {
         apartamento: { select: { id: true, numero: true } },
       },
     });
+  }
+
+  async resetSenhaAp(moradorId: string): Promise<{ novaSenha: string }> {
+    const morador = await this.prisma.morador.findUnique({
+      where: { id: moradorId },
+      select: { apartamentoId: true },
+    });
+    if (!morador) throw new NotFoundException('Morador não encontrado');
+
+    const novaSenha = Math.random().toString(36).slice(-8).toUpperCase();
+    const hash = await bcrypt.hash(novaSenha, 10);
+    await this.prisma.apartamento.update({
+      where: { id: morador.apartamentoId },
+      data: { passwordHash: hash, isProvisional: true },
+    });
+    return { novaSenha };
   }
 
   async adminUpdate(moradorId: string, dto: AdminUpdateMoradorDto) {

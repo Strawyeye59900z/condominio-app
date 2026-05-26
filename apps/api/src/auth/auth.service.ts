@@ -1,7 +1,9 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   Logger,
+  NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -218,6 +220,37 @@ export class AuthService {
       secret: this.config.getOrThrow<string>('JWT_REFRESH_SECRET'),
       expiresIn: this.config.get<string>('JWT_REFRESH_TTL', '30d'),
     });
+  }
+
+  // ===== Admin management =====
+  async listAdmins() {
+    return this.prisma.admin.findMany({
+      select: { id: true, email: true, createdAt: true },
+      orderBy: { createdAt: 'asc' },
+    });
+  }
+
+  async createAdmin(email: string, senha: string) {
+    const exists = await this.prisma.admin.findUnique({ where: { email } });
+    if (exists) throw new ConflictException('Email já cadastrado.');
+    const hash = await AuthService.hashPassword(senha);
+    return this.prisma.admin.create({
+      data: { email, passwordHash: hash },
+      select: { id: true, email: true, createdAt: true },
+    });
+  }
+
+  async deleteAdmin(id: string, requesterId: string) {
+    if (id === requesterId) {
+      throw new BadRequestException('Você não pode remover sua própria conta.');
+    }
+    const admin = await this.prisma.admin.findUnique({ where: { id } });
+    if (!admin) throw new NotFoundException('Administrador não encontrado.');
+    const count = await this.prisma.admin.count();
+    if (count <= 1) {
+      throw new BadRequestException('Deve haver pelo menos um administrador.');
+    }
+    await this.prisma.admin.delete({ where: { id } });
   }
 
   // ===== Lista pública de porteiros (sem dados sensíveis) =====

@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Query } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpStatus, Param, Patch, Post, Query } from '@nestjs/common';
 import { StatusFacial } from '@prisma/client';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { AdminUpdateMoradorDto } from './dto/moradores.dto';
@@ -20,5 +20,11 @@ export class MoradoresAdminController {
   @Patch(':id')
   update(@Param('id') id: string, @Body() dto: AdminUpdateMoradorDto) {
     return this.svc.adminUpdate(id, dto);
+  }
+
+  @Post(':id/reset-senha')
+  @HttpCode(HttpStatus.OK)
+  resetSenha(@Param('id') id: string) {
+    return this.svc.resetSenhaAp(id);
   }
 }

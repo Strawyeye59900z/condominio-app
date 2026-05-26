@@ -1,9 +1,11 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   HttpStatus,
+  Param,
   Post,
   Req,
   Res,
@@ -12,6 +14,8 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { Throttle } from '@nestjs/throttler';
 import type { Request, Response } from 'express';
+import { IsEmail, IsString, MinLength } from 'class-validator';
+import { Roles } from './decorators/roles.decorator';
 import { Public } from './decorators/public.decorator';
 import { AllowMustChangePassword } from './decorators/allow-must-change-password.decorator';
 import { CurrentUser } from './decorators/current-user.decorator';
@@ -28,6 +32,15 @@ import type {
   JwtRefreshPayload,
   RequestUser,
 } from './types/auth.types';
+
+class CreateAdminDto {
+  @IsEmail()
+  email!: string;
+
+  @IsString()
+  @MinLength(6)
+  senha!: string;
+}
 
 // 10 tentativas de login por minuto por IP
 @Throttle({ global: { ttl: 60_000, limit: 10 } })
@@ -98,6 +111,26 @@ export class AuthController {
     @Body() dto: ChangePasswordDto,
   ): Promise<void> {
     await this.auth.changePassword(user, dto.senhaAtual, dto.novaSenha);
+  }
+
+  // ===== Admin management (only admin role) =====
+  @Roles('admin')
+  @Get('admins')
+  listAdmins() {
+    return this.auth.listAdmins();
+  }
+
+  @Roles('admin')
+  @Post('admins')
+  createAdmin(@Body() dto: CreateAdminDto) {
+    return this.auth.createAdmin(dto.email, dto.senha);
+  }
+
+  @Roles('admin')
+  @Delete('admins/:id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async deleteAdmin(@Param('id') id: string, @CurrentUser() user: RequestUser) {
+    await this.auth.deleteAdmin(id, user.id);
   }
 
   // ===== helpers =====
