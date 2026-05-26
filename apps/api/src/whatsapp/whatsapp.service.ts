@@ -17,14 +17,12 @@ const RETRY_DELAYS_MS = [5_000, 30_000, 120_000]; // 5s, 30s, 2min
 @Injectable()
 export class WhatsAppService implements OnModuleInit {
   private readonly logger = new Logger(WhatsAppService.name);
-  private readonly instance: string;
+  private readonly instance = 'condominio';
   private sock: ReturnType<typeof makeWASocket> | null = null;
   private qrCode: string | null = null;
   private connected = false;
 
-  constructor(private readonly config: ConfigService) {
-    this.instance = this.config.getOrThrow<string>('EVOLUTION_INSTANCE');
-  }
+  constructor(private readonly config: ConfigService) {}
 
   async onModuleInit() {
     await this.initializeSocket();
