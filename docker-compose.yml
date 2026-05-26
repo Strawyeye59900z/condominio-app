@@ -1,6 +1,7 @@
 services:
-  # Tailscale sidecar com auth-key pré-gerada para autenticação automática
-  # Auth-key armazenada em TS_AUTHKEY (gere em: https://login.tailscale.com/admin/settings/keys)
+  # Tailscale sidecar com auth-key pré-gerada para autenticação automática.
+  # Roda na rede bridge normal. O api usa rota estática para alcançar os
+  # terminais Hikvision (192.168.1.x) via IP do container tailscale.
   tailscale:
     image: tailscale/tailscale:stable
     container_name: condominio-tailscale
@@ -28,9 +29,6 @@ services:
       TZ: ${TZ}
     volumes:
       - pgdata:/var/lib/postgresql/data
-    # Acessível via localhost dentro dos containers que compartilham network com tailscale
-    ports:
-      - "127.0.0.1:5432:5432"
     networks: [condominio_net]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
@@ -44,9 +42,6 @@ services:
       dockerfile: apps/api/Dockerfile
     container_name: condominio-api
     restart: unless-stopped
-    # Compartilha network com tailscale para acessar tailnet (terminais Hikvision)
-    network_mode: "service:tailscale"
-    # DATABASE_URL deve apontar para localhost:5432 (porta mapeada do postgres)
     depends_on:
       postgres:
         condition: service_healthy
@@ -68,6 +63,7 @@ services:
     volumes:
       - ./uploads:/app/uploads
       - wa_auth:/app/auth_info_condominio
+    networks: [condominio_net]
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:${API_PORT}/api/v1/health || exit 1"]
       interval: 15s
@@ -80,7 +76,6 @@ services:
       context: .
       dockerfile: apps/web/Dockerfile
       args:
-        # API roda na rede bridge → acessar pelo container name
         API_INTERNAL_URL: http://condominio-api:${API_PORT}
     container_name: condominio-web
     restart: unless-stopped
