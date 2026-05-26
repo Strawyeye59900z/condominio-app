@@ -1,25 +1,4 @@
 services:
-  # Tailscale sidecar — coloca o container `api` na tailnet para alcançar
-  # os terminais Hikvision (192.168.1.21/22) via Tailscale.
-  # Autenticação manual: rodar `docker compose exec tailscale tailscale up`
-  # uma única vez e autorizar pela conta no admin Tailscale.
-  tailscale:
-    image: tailscale/tailscale:stable
-    container_name: condominio-tailscale
-    hostname: condominio-api
-    restart: unless-stopped
-    environment:
-      TS_STATE_DIR: /var/lib/tailscale
-      TS_USERSPACE: "true"
-      TS_EXTRA_ARGS: "--accept-routes"
-      TZ: ${TZ}
-    volumes:
-      - ts_state:/var/lib/tailscale
-    cap_add:
-      - NET_ADMIN
-      - NET_RAW
-    networks: [condominio_net]
-
   postgres:
     image: postgres:16-alpine
     container_name: condominio-postgres
@@ -44,13 +23,9 @@ services:
       dockerfile: apps/api/Dockerfile
     container_name: condominio-api
     restart: unless-stopped
-    # Compartilha a netns do sidecar Tailscale para enxergar a tailnet (terminais Hikvision)
-    network_mode: "service:tailscale"
     depends_on:
       postgres:
         condition: service_healthy
-      tailscale:
-        condition: service_started
     environment:
       NODE_ENV: production
       DATABASE_URL: ${DATABASE_URL}
@@ -79,8 +54,8 @@ services:
       context: .
       dockerfile: apps/web/Dockerfile
       args:
-        # API roda na netns do sidecar tailscale → endereçar pelo nome do sidecar
-        API_INTERNAL_URL: http://condominio-tailscale:${API_PORT}
+        # API roda em localhost dentro da rede Docker
+        API_INTERNAL_URL: http://condominio-api:${API_PORT}
     container_name: condominio-web
     restart: unless-stopped
     depends_on:
@@ -88,7 +63,7 @@ services:
         condition: service_healthy
     environment:
       NODE_ENV: production
-      API_INTERNAL_URL: http://condominio-tailscale:${API_PORT}
+      API_INTERNAL_URL: http://condominio-api:${API_PORT}
       NEXT_PUBLIC_APP_URL: ${APP_URL}
       TZ: ${TZ}
     ports:
@@ -98,7 +73,6 @@ services:
 volumes:
   pgdata:
   wa_auth:
-  ts_state:
 
 networks:
   condominio_net:
