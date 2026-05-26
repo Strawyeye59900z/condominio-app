@@ -89,6 +89,7 @@ services:
       TZ: ${TZ}
     volumes:
       - ./uploads:/app/uploads
+      - wa_auth:/app/auth_info_condominio
     networks: [condominio_net]
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:${API_PORT}/api/v1/health || exit 1"]
@@ -121,6 +122,7 @@ volumes:
   pgdata:
   evolution_instances:
   evolution_store:
+  wa_auth:
 
 networks:
   condominio_net:

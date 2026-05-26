@@ -211,6 +211,12 @@ export const adminApi = {
   disconnectWhatsApp: (token: string) =>
     api<void>('/admin/whatsapp/disconnect', { method: 'POST', token }),
 
+  getWhatsAppTemplate: (token: string) =>
+    api<{ template: string; default: string }>('/admin/whatsapp/template', { token }),
+
+  patchWhatsAppTemplate: (token: string, template: string) =>
+    api<{ template: string }>('/admin/whatsapp/template', { method: 'PATCH', token, body: { template } }),
+
   getRelatorio: (token: string, inicio: string, fim: string) =>
     api<Response>(`/admin/reservas/relatorio.pdf${qs({ inicio, fim })}`, { token, raw: true }),
 

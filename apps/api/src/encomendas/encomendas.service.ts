@@ -7,6 +7,7 @@ import {
 import { StatusEncomenda, WhatsappStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { WhatsAppService } from '../whatsapp/whatsapp.service';
+import { DEFAULT_WHATSAPP_TEMPLATE } from '../whatsapp/whatsapp.controller';
 import { REGRAS } from '../common/regras';
 import { CreateEncomendaDto, UpdateEncomendaDto } from './dto/encomendas.dto';
 
@@ -15,6 +16,8 @@ const TIPO_LABEL: Record<string, string> = {
   ENVELOPE: 'Envelope',
   SACOLA: 'Sacola',
 };
+
+const TEMPLATE_KEY = 'WHATSAPP_TEMPLATE_ENCOMENDA';
 
 @Injectable()
 export class EncomendasService {
@@ -63,10 +66,17 @@ export class EncomendasService {
       timeZone: 'America/Sao_Paulo',
     });
     const tipoLabel = TIPO_LABEL[dto.tipo] ?? dto.tipo;
-    const texto =
-      `Olá, ${morador.nome}! 📦\n` +
-      `Uma encomenda do tipo *${tipoLabel}* foi recebida na portaria às ${hora}.\n` +
-      `Dirija-se à portaria para retirar. ✅`;
+
+    const [templateRow, porteiro] = await Promise.all([
+      this.prisma.configuracao.findUnique({ where: { chave: TEMPLATE_KEY } }),
+      this.prisma.funcionario.findUnique({ where: { id: funcionarioId }, select: { nome: true } }),
+    ]);
+
+    const texto = (templateRow?.valor ?? DEFAULT_WHATSAPP_TEMPLATE)
+      .replace(/{nome}/g, morador.nome)
+      .replace(/{tipo}/g, tipoLabel)
+      .replace(/{hora}/g, hora)
+      .replace(/{porteiro}/g, porteiro?.nome ?? 'porteiro');
 
     const numero = morador.telefone.replace(/\D/g, ''); // remove o +
 
@@ -138,7 +148,11 @@ export class EncomendasService {
   async reenviarWhatsapp(id: string) {
     const encomenda = await this.prisma.encomenda.findUnique({
       where: { id },
-      include: {
+      select: {
+        id: true,
+        tipo: true,
+        recebidaEm: true,
+        recebidaPor: true,
         morador: { select: { nome: true, telefone: true } },
         apartamento: { select: { numero: true } },
       },
@@ -151,10 +165,17 @@ export class EncomendasService {
       timeZone: 'America/Sao_Paulo',
     });
     const tipoLabel = TIPO_LABEL[encomenda.tipo] ?? encomenda.tipo;
-    const texto =
-      `Olá, ${encomenda.morador.nome}! 📦\n` +
-      `Uma encomenda do tipo *${tipoLabel}* foi recebida na portaria às ${hora}.\n` +
-      `Dirija-se à portaria para retirar. ✅`;
+
+    const [templateRow, porteiro] = await Promise.all([
+      this.prisma.configuracao.findUnique({ where: { chave: TEMPLATE_KEY } }),
+      this.prisma.funcionario.findUnique({ where: { id: encomenda.recebidaPor }, select: { nome: true } }),
+    ]);
+
+    const texto = (templateRow?.valor ?? DEFAULT_WHATSAPP_TEMPLATE)
+      .replace(/{nome}/g, encomenda.morador.nome)
+      .replace(/{tipo}/g, tipoLabel)
+      .replace(/{hora}/g, hora)
+      .replace(/{porteiro}/g, porteiro?.nome ?? 'porteiro');
 
     const numero = encomenda.morador.telefone.replace(/\D/g, '');
 
@@ -183,14 +204,17 @@ export class EncomendasService {
 
   // ===== Porteiro: listar encomendas =====
   listPorteiro(status?: string) {
+    const s = status?.toLowerCase();
     const where =
-      status === 'todas' || !status
+      !s || s === 'todas'
         ? {}
-        : status === 'pendente'
+        : s === 'pendente'
         ? { status: StatusEncomenda.PENDENTE }
-        : status === 'retirada'
+        : s === 'retirada'
         ? { status: StatusEncomenda.RETIRADA }
-        : { status: StatusEncomenda.CANCELADA };
+        : s === 'cancelada'
+        ? { status: StatusEncomenda.CANCELADA }
+        : {};
 
     return this.prisma.encomenda.findMany({
       where,

@@ -156,6 +156,18 @@ enum Espaco {
 }
 
 // ============================================================
+// CONFIGURAÇÕES (chave-valor)
+// ============================================================
+
+model Configuracao {
+  chave     String   @id
+  valor     String
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("configuracoes")
+}
+
+// ============================================================
 // AUDIT LOG
 // ============================================================
 

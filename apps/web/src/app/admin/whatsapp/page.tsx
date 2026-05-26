@@ -3,11 +3,18 @@
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { MessageSquare, Wifi, WifiOff, RefreshCw, LogOut as LogOutIcon, Loader2 } from 'lucide-react';
+import { MessageSquare, Wifi, WifiOff, RefreshCw, LogOut as LogOutIcon, Loader2, Save, RotateCcw } from 'lucide-react';
 import { session, type SessionUser } from '@/lib/auth';
 import { adminApi } from '@/lib/api';
 import { AppShell } from '@/components/shell/AppShell';
 import { cn } from '@/lib/cn';
+
+const VARIAVEIS = [
+  { key: '{nome}', desc: 'Nome do morador' },
+  { key: '{tipo}', desc: 'Tipo da encomenda' },
+  { key: '{hora}', desc: 'Hora do recebimento' },
+  { key: '{porteiro}', desc: 'Nome do porteiro' },
+];
 
 type WaStatus = { connected: boolean; state: string; instance: string };
 
@@ -22,6 +29,13 @@ export default function WhatsAppPage() {
   const [disconnecting, setDisconnecting] = useState(false);
   const [qrError, setQrError] = useState<string | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Template state
+  const [templateOrig, setTemplateOrig] = useState('');
+  const [template, setTemplate] = useState('');
+  const [defaultTemplate, setDefaultTemplate] = useState('');
+  const [savingTemplate, setSavingTemplate] = useState(false);
+  const [templateSaved, setTemplateSaved] = useState(false);
 
   useEffect(() => {
     const u = session.getUser();
@@ -56,6 +70,11 @@ export default function WhatsAppPage() {
   useEffect(() => {
     if (!token) return;
     fetchStatus(token);
+    adminApi.getWhatsAppTemplate(token).then(r => {
+      setTemplate(r.template);
+      setTemplateOrig(r.template);
+      setDefaultTemplate(r.default);
+    }).catch(() => null);
   }, [token]);
 
   // Poll status while disconnected
@@ -92,6 +111,19 @@ export default function WhatsAppPage() {
   async function handleRefreshQr() {
     if (!token) return;
     fetchQr(token);
+  }
+
+  async function handleSaveTemplate() {
+    if (!token) return;
+    setSavingTemplate(true);
+    try {
+      const r = await adminApi.patchWhatsAppTemplate(token, template);
+      setTemplateOrig(r.template);
+      setTemplateSaved(true);
+      setTimeout(() => setTemplateSaved(false), 3000);
+    } finally {
+      setSavingTemplate(false);
+    }
   }
 
   if (!user) return null;
@@ -204,6 +236,64 @@ export default function WhatsAppPage() {
               <p className="text-xs text-ink/60">Notificações de encomendas estão ativas</p>
             </div>
           )}
+        </motion.div>
+
+        {/* Template editor */}
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: 0.1 }}
+          className="card space-y-4">
+          <div>
+            <h3 className="font-semibold text-sm text-ink">Mensagem de Notificação</h3>
+            <p className="text-xs text-ink/50 mt-0.5">Texto enviado por WhatsApp ao registrar uma encomenda</p>
+          </div>
+
+          {/* Variables */}
+          <div className="flex flex-wrap gap-2">
+            {VARIAVEIS.map(v => (
+              <button key={v.key} type="button"
+                onClick={() => setTemplate(prev => prev + v.key)}
+                title={v.desc}
+                className="text-xs font-mono bg-bone border border-bone-dark/60 text-ink/70 px-2 py-1 rounded-lg hover:border-brand hover:text-brand transition-colors">
+                {v.key}
+              </button>
+            ))}
+            <span className="text-xs text-ink/40 self-center">← clique para inserir</span>
+          </div>
+
+          <textarea
+            value={template}
+            onChange={e => setTemplate(e.target.value)}
+            rows={5}
+            className="w-full input font-mono text-xs resize-none"
+            placeholder="Escreva a mensagem..."
+          />
+
+          {/* Preview */}
+          {template && (
+            <div className="bg-bone rounded-xl p-3 space-y-1">
+              <p className="text-[10px] font-semibold text-ink/40 uppercase tracking-wide">Prévia</p>
+              <p className="text-xs text-ink/70 whitespace-pre-wrap">
+                {template
+                  .replace(/{nome}/g, 'João Silva')
+                  .replace(/{tipo}/g, 'Caixa')
+                  .replace(/{hora}/g, '14:32')
+                  .replace(/{porteiro}/g, 'Carlos')}
+              </p>
+            </div>
+          )}
+
+          <div className="flex items-center gap-3">
+            <button onClick={handleSaveTemplate} disabled={savingTemplate || template === templateOrig}
+              className="btn-primary py-2 px-4 text-sm flex items-center gap-2 disabled:opacity-50">
+              {savingTemplate ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+              {templateSaved ? 'Salvo!' : 'Salvar'}
+            </button>
+            {template !== defaultTemplate && (
+              <button onClick={() => { setTemplate(defaultTemplate); }}
+                className="flex items-center gap-1.5 text-xs text-ink/50 hover:text-ink">
+                <RotateCcw className="w-3 h-3" /> Restaurar padrão
+              </button>
+            )}
+          </div>
         </motion.div>
       </div>
     </AppShell>
