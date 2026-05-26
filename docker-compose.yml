@@ -31,56 +31,12 @@ services:
       TZ: ${TZ}
     volumes:
       - pgdata:/var/lib/postgresql/data
-      # Cria o database extra "evolution" no primeiro start (idempotente)
-      - ./scripts/postgres-init.sql:/docker-entrypoint-initdb.d/01-evolution-db.sql:ro
     networks: [condominio_net]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 10s
       timeout: 5s
       retries: 5
-
-  evolution:
-    image: atendai/evolution-api:v2.1.1
-    container_name: condominio-evolution
-    restart: unless-stopped
-    depends_on:
-      postgres:
-        condition: service_healthy
-    environment:
-      # Auth
-      AUTHENTICATION_API_KEY: ${EVOLUTION_API_KEY}
-      # Database (Postgres compartilhado, DB separado)
-      DATABASE_PROVIDER: postgresql
-      DATABASE_CONNECTION_URI: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/evolution?schema=public
-      DATABASE_CONNECTION_CLIENT_NAME: evolution_exchange
-      DATABASE_SAVE_DATA_INSTANCE: "true"
-      DATABASE_SAVE_DATA_NEW_MESSAGE: "false"
-      DATABASE_SAVE_MESSAGE_UPDATE: "false"
-      DATABASE_SAVE_DATA_CONTACTS: "false"
-      DATABASE_SAVE_DATA_CHATS: "false"
-      DATABASE_SAVE_DATA_LABELS: "false"
-      DATABASE_SAVE_DATA_HISTORIC: "false"
-      # Cache local (sem Redis)
-      CACHE_REDIS_ENABLED: "false"
-      CACHE_LOCAL_ENABLED: "true"
-      # Logs/limites
-      LOG_LEVEL: "ERROR"
-      QRCODE_LIMIT: "30"
-      CONFIG_SESSION_PHONE_CLIENT: "Condominio"
-      DEL_INSTANCE: "false"
-      LANGUAGE: pt-BR
-      TZ: ${TZ}
-    volumes:
-      - evolution_instances:/evolution/instances
-      - evolution_store:/evolution/store
-    networks: [condominio_net]
-    healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/ || exit 1"]
-      interval: 15s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
 
   api:
     build:
@@ -93,8 +49,6 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      evolution:
-        condition: service_started
       tailscale:
         condition: service_started
     environment:
@@ -107,9 +61,6 @@ services:
       JWT_REFRESH_TTL: ${JWT_REFRESH_TTL}
       ADMIN_EMAIL: ${ADMIN_EMAIL}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD}
-      EVOLUTION_API_URL: ${EVOLUTION_API_URL}
-      EVOLUTION_API_KEY: ${EVOLUTION_API_KEY}
-      EVOLUTION_INSTANCE: ${EVOLUTION_INSTANCE}
       APP_ENCRYPTION_KEY: ${APP_ENCRYPTION_KEY}
       API_PORT: ${API_PORT}
       TZ: ${TZ}
@@ -146,8 +97,6 @@ services:
 
 volumes:
   pgdata:
-  evolution_instances:
-  evolution_store:
   wa_auth:
   ts_state:
 
